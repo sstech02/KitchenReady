@@ -11,6 +11,8 @@ import {
 } from "firebase/auth";
 import "./App.css";
 import PrepItem from "./components/PrepItem";
+import RecipeCard from "./components/RecipeCard";
+import type { Recipe } from "./models/Recipe";
 import { auth, isFirebaseConfigured } from "./services/firebase";
 import { usePrepStore } from "./store/usePrepStore";
 
@@ -28,6 +30,17 @@ function App() {
   const [authError, setAuthError] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+
+  const fetchRecipes = async () => {
+    const res = await fetch("http://localhost:4000/api/recipes");
+    if (!res.ok) {
+      throw new Error("Failed to fetch recipes");
+    }
+
+    const recipeItems = (await res.json()) as Recipe[];
+    setRecipes(recipeItems);
+  };
 
   useEffect(() => {
     if (!auth) {
@@ -42,17 +55,15 @@ function App() {
         fetchItems().catch((err) => {
           console.error("Failed loading prep items:", err);
         });
+
+        fetchRecipes().catch((err) => {
+          console.error("Failed loading recipes:", err);
+        });
       }
     });
 
     return unsubscribe;
   }, [fetchItems]);
-
-  useEffect(() => {
-    if (modalView === "login") {
-      setAuthMessage("");
-    }
-  }, [modalView]);
 
   const goToLogin = () => {
     setModalView("login");
@@ -386,6 +397,23 @@ function App() {
             {prepItems.map((item) => (
               <PrepItem key={item.id} item={item} />
             ))}
+          </section>
+
+          <section className="recipes-panel" aria-label="Recipe scaling">
+            <div className="section-heading">
+              <div>
+                <h2 className="section-title">Recipe Scaling</h2>
+                <p className="section-copy">
+                  Adjust ingredient quantities for common batch sizes.
+                </p>
+              </div>
+            </div>
+
+            <div className="recipe-grid-layout">
+              {recipes.map((recipe) => (
+                <RecipeCard key={recipe.id} recipe={recipe} />
+              ))}
+            </div>
           </section>
         </section>
       )}

@@ -8,7 +8,7 @@ export interface PrepItem {
   station?: string;        // e.g. "line", "bakery", "cold prep"
   parLevel: number;
   onHand: number;
-  targetQty: number;       // usually parLevel - onHand
+  targetQty: number;       // desired prep amount, stored independently
   unit: Unit;
   dueBy?: string;          // ISO date-time
   priority: 1 | 2 | 3;     // 1 = high, 3 = low

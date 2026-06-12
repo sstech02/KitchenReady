@@ -1,0 +1,57 @@
+[
+  {
+    "id": "prep-1",
+    "name": "Diced Onions",
+    "parLevel": 10,
+    "onHand": 0,
+    "targetQty": 6,
+    "unit": "cup",
+    "priority": 2,
+    "status": "in_progress",
+    "assignedTo": "Sam"
+  },
+  {
+    "id": "prep-2",
+    "name": "Shredded Cheddar",
+    "parLevel": 1,
+    "onHand": 0,
+    "targetQty": 3,
+    "unit": "lb",
+    "priority": 3,
+    "status": "todo",
+    "assignedTo": "Ari"
+  },
+  {
+    "id": "prep-3",
+    "name": "Ranch Dressing",
+    "parLevel": 2,
+    "onHand": 4,
+    "targetQty": 1,
+    "unit": "l",
+    "priority": 1,
+    "status": "todo",
+    "assignedTo": "Lee"
+  },
+  {
+    "id": "prep-4",
+    "name": "Tomato Basil Soup",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "l",
+    "priority": 1,
+    "status": "done",
+    "assignedTo": "Jordan"
+  },
+  {
+    "id": "prep-5",
+    "name": "House Croutons",
+    "parLevel": 3,
+    "onHand": 0,
+    "targetQty": 3,
+    "unit": "pan",
+    "priority": 2,
+    "status": "todo",
+    "assignedTo": "Unassigned"
+  }
+]

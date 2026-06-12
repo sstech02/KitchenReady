@@ -1,3 +1,4 @@
+console.log("Data file loaded")
 export const prepItems = [
 {
 id: "prep-1",
@@ -12,7 +13,7 @@ assignedTo: "Sam",
 },
 {
 id: "prep-2",
-name: "Shredded cheddar",
+name: "Shredded Cheddar",
 parLevel: 6,
 onHand: 1,
 targetQty: 5,
@@ -23,7 +24,7 @@ assignedTo: "Ari",
 },
 {
 id: "prep-3",
-name: "Ranch dressing",
+name: "Ranch Dressing",
 parLevel: 4,
 onHand: 0,
 targetQty: 4,
@@ -34,7 +35,7 @@ assignedTo: "Lee",
 },
 {
 id: "prep-4",
-name: "Tomato basil soup",
+name: "Tomato Basil Soup",
 parLevel: 2,
 onHand: 1,
 targetQty: 1,
@@ -45,7 +46,7 @@ assignedTo: "Jordan",
 },
 {
 id: "prep-5",
-name: "House croutons",
+name: "House Croutons",
 parLevel: 3,
 onHand: 0,
 targetQty: 3,

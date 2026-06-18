@@ -2,35 +2,38 @@
   {
     "id": "prep-1",
     "name": "Diced Onions",
-    "parLevel": 10,
+    "parLevel": 0,
     "onHand": 0,
-    "targetQty": 6,
+    "targetQty": 5,
     "unit": "cup",
     "priority": 2,
-    "status": "in_progress",
-    "assignedTo": "Sam"
+    "status": "todo",
+    "assignedTo": "Sam",
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
   },
   {
     "id": "prep-2",
     "name": "Shredded Cheddar",
-    "parLevel": 1,
+    "parLevel": 0,
     "onHand": 0,
-    "targetQty": 3,
+    "targetQty": 0,
     "unit": "lb",
-    "priority": 3,
+    "priority": 1,
     "status": "todo",
-    "assignedTo": "Ari"
+    "assignedTo": "Ari",
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
   },
   {
     "id": "prep-3",
     "name": "Ranch Dressing",
-    "parLevel": 2,
+    "parLevel": 4,
     "onHand": 4,
-    "targetQty": 1,
+    "targetQty": 4,
     "unit": "l",
     "priority": 1,
     "status": "todo",
-    "assignedTo": "Lee"
+    "assignedTo": "Lee",
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
   },
   {
     "id": "prep-4",
@@ -40,18 +43,62 @@
     "targetQty": 0,
     "unit": "l",
     "priority": 1,
-    "status": "done",
-    "assignedTo": "Jordan"
+    "status": "todo",
+    "assignedTo": "Jordan",
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
   },
   {
-    "id": "prep-5",
-    "name": "House Croutons",
-    "parLevel": 3,
-    "onHand": 0,
-    "targetQty": 3,
-    "unit": "pan",
-    "priority": 2,
+    "name": "Test",
+    "station": "Test",
+    "parLevel": 1,
+    "onHand": 1,
+    "targetQty": 1,
+    "unit": "ml",
+    "priority": 1,
     "status": "todo",
-    "assignedTo": "Unassigned"
+    "assignedTo": "Sam",
+    "id": "d1ad7c7d-e1ce-445f-a9fd-3ce94c5a5665",
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+  },
+  {
+    "name": "Burger patties",
+    "station": "Grill",
+    "parLevel": 1,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "pan",
+    "priority": 3,
+    "status": "todo",
+    "notes": "Do first",
+    "id": "06989dac-5557-4fba-91af-9ea442593631",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+  },
+  {
+    "name": "Roasted Garlic Aoli",
+    "station": "Cold prep",
+    "parLevel": 1,
+    "onHand": 2,
+    "targetQty": 4,
+    "unit": "each",
+    "priority": 3,
+    "status": "done",
+    "assignedTo": "Lee",
+    "notes": "Use fresh first and then jarred",
+    "id": "4c879574-070c-449c-88ac-d86e73396ac4",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+  },
+  {
+    "name": "Fries",
+    "station": "Fry",
+    "parLevel": 4,
+    "onHand": 0,
+    "targetQty": 8,
+    "unit": "bag",
+    "priority": 3,
+    "status": "todo",
+    "assignedTo": "Jen",
+    "notes": "Contact second supplier",
+    "id": "4bb3c5cb-78fa-4758-b4a0-ff1f48fce269",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
   }
 ]

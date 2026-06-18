@@ -1,0 +1,42 @@
+[
+  {
+    "id": "83745afd-fe59-4765-b05c-37fd8b233aa1",
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "userEmail": "owner@kitchenready.local",
+    "role": "admin",
+    "createdAt": "2026-06-18T18:58:56.492Z",
+    "updatedAt": "2026-06-18T18:58:56.492Z"
+  },
+  {
+    "id": "b6e029b0-d2dc-4d92-9625-47f0789736d9",
+    "dashboardId": "d529beac-35d2-42d3-b42e-9f064f904b6f",
+    "userEmail": "sam@example.com",
+    "role": "admin",
+    "createdAt": "2026-06-18T18:59:08.074Z",
+    "updatedAt": "2026-06-18T18:59:08.074Z"
+  },
+  {
+    "id": "7c7818b7-5598-4870-83f6-f4e0664224f9",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "userEmail": "samschill.dev@gmail.com",
+    "role": "admin",
+    "createdAt": "2026-06-18T18:59:48.078Z",
+    "updatedAt": "2026-06-18T18:59:48.078Z"
+  },
+  {
+    "id": "82a29c82-1386-46d2-8184-8712a40e63fb",
+    "dashboardId": "333f1f22-4c67-4c26-9289-bb1579933827",
+    "userEmail": "samschill.dev@gmail.com",
+    "role": "admin",
+    "createdAt": "2026-06-18T19:00:09.890Z",
+    "updatedAt": "2026-06-18T19:00:09.890Z"
+  },
+  {
+    "id": "1d28747d-fca6-4663-95fd-ab13b1716f8c",
+    "dashboardId": "fbabce4b-c4d8-4e7c-8c02-6aa7eb63ab17",
+    "userEmail": "samuelsch002@gmail.com",
+    "role": "admin",
+    "createdAt": "2026-06-18T19:25:58.155Z",
+    "updatedAt": "2026-06-18T19:25:58.155Z"
+  }
+]

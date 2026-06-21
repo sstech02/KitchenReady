@@ -63,12 +63,12 @@
   {
     "name": "Burger patties",
     "station": "Grill",
-    "parLevel": 1,
+    "parLevel": 2,
     "onHand": 0,
     "targetQty": 0,
     "unit": "pan",
     "priority": 3,
-    "status": "todo",
+    "status": "done",
     "notes": "Do first",
     "id": "06989dac-5557-4fba-91af-9ea442593631",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
@@ -99,6 +99,20 @@
     "assignedTo": "Jen",
     "notes": "Contact second supplier",
     "id": "4bb3c5cb-78fa-4758-b4a0-ff1f48fce269",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+  },
+  {
+    "name": "Bread",
+    "station": "Bakery",
+    "parLevel": 3,
+    "onHand": 1,
+    "targetQty": 3,
+    "unit": "each",
+    "priority": 2,
+    "status": "in_progress",
+    "assignedTo": "Brent",
+    "notes": "Use starter dough",
+    "id": "06021c8a-afd5-440d-81f9-cd26ba43531c",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
   }
 ]

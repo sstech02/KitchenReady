@@ -21,7 +21,7 @@
     "userEmail": "samschill.dev@gmail.com",
     "role": "admin",
     "createdAt": "2026-06-18T18:59:48.078Z",
-    "updatedAt": "2026-06-18T18:59:48.078Z"
+    "updatedAt": "2026-06-18T20:02:51.726Z"
   },
   {
     "id": "82a29c82-1386-46d2-8184-8712a40e63fb",
@@ -38,5 +38,13 @@
     "role": "admin",
     "createdAt": "2026-06-18T19:25:58.155Z",
     "updatedAt": "2026-06-18T19:25:58.155Z"
+  },
+  {
+    "id": "c7da930b-96d5-4844-bc43-4551f56e9b36",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "userEmail": "samuelsch002@gmail.com",
+    "role": "admin",
+    "createdAt": "2026-06-18T20:00:48.701Z",
+    "updatedAt": "2026-06-18T20:02:22.230Z"
   }
 ]

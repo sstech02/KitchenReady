@@ -715,7 +715,7 @@ function App() {
         />
       )}
 
-      {showMembersPanel && user && isAdmin && selectedDashboardId && (
+      {showMembersPanel && user && selectedDashboardId && (
         <DashboardMembersPanel
           dashboardId={selectedDashboardId}
           currentUserEmail={user.email ?? user.uid}

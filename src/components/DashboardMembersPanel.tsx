@@ -28,6 +28,13 @@ const roleDescription: Record<Role, string> = {
     "Full access. Can manage prep items, recipes, handovers and dashboard membership.",
 };
 
+const roleOptionLabel: Record<Role, string> = {
+  viewer: "Viewer - Read-only",
+  operator: "Operator - Update prep items",
+  lead: "Lead - Submit handovers",
+  admin: "Admin - Full access",
+};
+
 const toErrorMessage = (fallback: string, body: unknown): string => {
   if (!body || typeof body !== "object") {
     return fallback;
@@ -250,11 +257,10 @@ function DashboardMembersPanel({
                 >
                   {ROLES.map((role) => (
                     <option key={role} value={role}>
-                      {roleLabel[role]}
+                      {roleOptionLabel[role]}
                     </option>
                   ))}
                 </select>
-                <span className="members-role-hint">{roleDescription[newRole]}</span>
               </label>
 
               <button type="submit" className="members-primary-btn" disabled={saving || loading}>
@@ -296,7 +302,7 @@ function DashboardMembersPanel({
                         >
                           {ROLES.map((role) => (
                             <option key={role} value={role}>
-                              {roleLabel[role]}
+                              {roleOptionLabel[role]}
                             </option>
                           ))}
                         </select>

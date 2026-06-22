@@ -31,7 +31,6 @@ let dashboardMembershipsStore = [];
 let recipesStore = [];
 let handoversStore = [];
 let defaultDashboardId = "";
-let storesInitialized = false;
 
 const normalizeEmail = (value) => value.trim().toLowerCase();
 const isValidEmail = (value) => /.+@.+\..+/.test(value);
@@ -391,14 +390,7 @@ const adminCountForDashboard = (dashboardId) =>
     (membership) => membership.dashboardId === dashboardId && membership.role === "admin",
   ).length;
 
-const ensureInitialized = async () => {
-  if (storesInitialized) {
-    return;
-  }
-
-  await loadDomainStores();
-  storesInitialized = true;
-};
+await loadDomainStores();
 
 app.use(cors());
 app.use(express.json());
@@ -856,20 +848,6 @@ app.delete("/api/handovers/:id", requireUserEmail, requireDashboardContext, requ
   return res.status(204).send();
 });
 
-export default async function handler(req, res) {
-  await ensureInitialized();
-  return app(req, res);
-}
-
-if (!process.env.VERCEL) {
-  ensureInitialized()
-    .then(() => {
-      app.listen(PORT, () => {
-        console.log("API running on http://localhost:" + PORT);
-      });
-    })
-    .catch((error) => {
-      console.error("Failed to initialize API stores:", error);
-      process.exit(1);
-    });
-}
+app.listen(PORT, () => {
+  console.log("API running on http://localhost:" + PORT);
+});

@@ -67,7 +67,7 @@ function App() {
   };
 
   const fetchDashboards = useCallback(async (userEmail: string, preferredDashboardId?: string) => {
-    const res = await fetch("/api/dashboards", {
+    const res = await fetch("http://localhost:4000/api/dashboards", {
       headers: {
         "x-user-email": userEmail,
       },
@@ -95,7 +95,7 @@ function App() {
       return [] as Recipe[];
     }
 
-    const res = await fetch("/api/recipes", {
+    const res = await fetch("http://localhost:4000/api/recipes", {
       headers: { ...getSessionHeaders() },
     });
     if (!res.ok) {
@@ -302,7 +302,7 @@ function App() {
     setDashboardMessage("");
 
     try {
-      const res = await fetch("/api/dashboards", {
+      const res = await fetch("http://localhost:4000/api/dashboards", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

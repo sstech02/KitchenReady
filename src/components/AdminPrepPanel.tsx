@@ -103,7 +103,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     setCreating(true);
 
     try {
-      const res = await fetch("/api/prep-items", {
+      const res = await fetch("http://localhost:4000/api/prep-items", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -144,7 +144,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
 
     try {
       const payload = { ...toPayload(editDraft), id };
-      const res = await fetch(`/api/prep-items/${id}`, {
+      const res = await fetch(`http://localhost:4000/api/prep-items/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -180,7 +180,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     setDeletingId(id);
 
     try {
-      const res = await fetch(`/api/prep-items/${id}`, {
+      const res = await fetch(`http://localhost:4000/api/prep-items/${id}`, {
         method: "DELETE",
         headers: {
           "x-user-email": adminEmail,

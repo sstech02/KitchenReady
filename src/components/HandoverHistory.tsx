@@ -37,7 +37,7 @@ function HandoverHistory({ onClose }: Props) {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch("/api/handovers", {
+    fetch("http://localhost:4000/api/handovers", {
       signal: controller.signal,
       headers: { ...getSessionHeaders() },
     })

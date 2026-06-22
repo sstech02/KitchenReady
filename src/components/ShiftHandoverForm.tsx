@@ -3,6 +3,7 @@ import type { User } from "firebase/auth";
 import type { ShiftHandover } from "../models/ShiftHand";
 import { getApiBaseUrl } from "../services/sessionHeaders";
 import type { Unit } from "../models/Unit";
+import type { PrepItem } from "../models/PrepItem";
 import { UNITS } from "../models/Unit";
 import { getSessionHeaders } from "../services/sessionHeaders";
 

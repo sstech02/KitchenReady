@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ShiftHandover } from "../models/ShiftHand";
-import { getSessionHeaders } from "../services/sessionHeaders";
+import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 
 type Props = {
   onClose: () => void;

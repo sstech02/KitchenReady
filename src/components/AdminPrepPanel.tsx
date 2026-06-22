@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import type { PrepItem } from "../models/PrepItem";
 import { PREP_STATUSES } from "../models/PrepStatus";
 import { UNITS } from "../models/Unit";
-import { getSessionHeaders } from "../services/sessionHeaders";
+import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 
 type Props = {
   adminEmail: string;
@@ -172,7 +172,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     setError("");
     setMessage("");
 
-    const confirmed = window.confirm(`Delete prep item \"${name}\"?`);
+    const confirmed = window.confirm(`Delete prep item '${name}'?`);
     if (!confirmed) {
       return;
     }

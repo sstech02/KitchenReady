@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import type { PrepItem } from "../models/PrepItem";
 import { PREP_STATUSES } from "../models/PrepStatus";
 import { UNITS } from "../models/Unit";
-import { getSessionHeaders } from "../services/sessionHeaders";
+import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 
 type Props = {
   adminEmail: string;
@@ -103,7 +103,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     setCreating(true);
 
     try {
-      const res = await fetch("/api/prep-items", {
+      const res = await fetch(`${getApiBaseUrl()}/api/prep-items`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -144,7 +144,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
 
     try {
       const payload = { ...toPayload(editDraft), id };
-      const res = await fetch(`/api/prep-items/${id}`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/prep-items/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -172,7 +172,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     setError("");
     setMessage("");
 
-    const confirmed = window.confirm(`Delete prep item \"${name}\"?`);
+    const confirmed = window.confirm(`Delete prep item '${name}'?`);
     if (!confirmed) {
       return;
     }
@@ -180,7 +180,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     setDeletingId(id);
 
     try {
-      const res = await fetch(`/api/prep-items/${id}`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/prep-items/${id}`, {
         method: "DELETE",
         headers: {
           "x-user-email": adminEmail,

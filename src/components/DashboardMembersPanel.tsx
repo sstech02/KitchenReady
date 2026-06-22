@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { DashboardMembership } from "../models/Dashboard";
 import { ROLES, type Role } from "../models/Role";
-import { getSessionHeaders } from "../services/sessionHeaders";
+import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 
 type Props = {
   dashboardId: string;
@@ -79,7 +79,7 @@ function DashboardMembersPanel({
     setError("");
 
     try {
-      const res = await fetch(`/api/dashboards/${dashboardId}/members`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/dashboards/${dashboardId}/members`, {
         headers: requestHeaders,
       });
 
@@ -115,7 +115,7 @@ function DashboardMembersPanel({
     setMessage("");
 
     try {
-      const res = await fetch(`/api/dashboards/${dashboardId}/members`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/dashboards/${dashboardId}/members`, {
         method: "POST",
         headers: requestHeaders,
         body: JSON.stringify({ userEmail: normalizedEmail, role: newRole }),
@@ -144,7 +144,7 @@ function DashboardMembersPanel({
     setMessage("");
 
     try {
-      const res = await fetch(`/api/dashboards/${dashboardId}/members/${memberId}`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/dashboards/${dashboardId}/members/${memberId}`, {
         method: "PUT",
         headers: requestHeaders,
         body: JSON.stringify({ role }),
@@ -177,7 +177,7 @@ function DashboardMembersPanel({
 
     try {
       const res = await fetch(
-        `/api/dashboards/${dashboardId}/members/${member.id}`,
+        `${getApiBaseUrl()}/api/dashboards/${dashboardId}/members/${member.id}`,
         {
           method: "DELETE",
           headers: requestHeaders,

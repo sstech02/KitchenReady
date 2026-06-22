@@ -21,6 +21,7 @@ import type { Recipe } from "./models/Recipe";
 import { hasRoleAtLeast, type Role } from "./models/Role";
 import { auth, isFirebaseConfigured } from "./services/firebase";
 import {
+  getApiBaseUrl,
   getSessionHeaders,
   getStoredDashboardId,
   setStoredDashboardId,
@@ -55,6 +56,10 @@ function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMembersPanel, setShowMembersPanel] = useState(false);
 
+  const firebaseMissingMessage = import.meta.env.PROD
+    ? "Firebase is not configured. Set VITE_FIREBASE_* variables in Vercel and redeploy."
+    : "Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.";
+
   const selectedDashboard = dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const currentRole: Role | null = selectedDashboard?.role ?? null;
   const canOperate = hasRoleAtLeast(currentRole, "operator");
@@ -67,7 +72,7 @@ function App() {
   };
 
   const fetchDashboards = useCallback(async (userEmail: string, preferredDashboardId?: string) => {
-    const res = await fetch("/api/dashboards", {
+    const res = await fetch(`${getApiBaseUrl()}/api/dashboards`, {
       headers: {
         "x-user-email": userEmail,
       },
@@ -95,7 +100,7 @@ function App() {
       return [] as Recipe[];
     }
 
-    const res = await fetch("/api/recipes", {
+    const res = await fetch(`${getApiBaseUrl()}/api/recipes`, {
       headers: { ...getSessionHeaders() },
     });
     if (!res.ok) {
@@ -177,7 +182,7 @@ function App() {
 
   const handleGoogleSignIn = async () => {
     if (!auth) {
-      setAuthError("Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.");
+      setAuthError(firebaseMissingMessage);
       return;
     }
 
@@ -197,7 +202,7 @@ function App() {
     event.preventDefault();
 
     if (!auth) {
-      setAuthError("Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.");
+      setAuthError(firebaseMissingMessage);
       return;
     }
 
@@ -218,7 +223,7 @@ function App() {
     event.preventDefault();
 
     if (!auth) {
-      setAuthError("Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.");
+      setAuthError(firebaseMissingMessage);
       return;
     }
 
@@ -245,7 +250,7 @@ function App() {
     event.preventDefault();
 
     if (!auth) {
-      setAuthError("Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.");
+      setAuthError(firebaseMissingMessage);
       return;
     }
 
@@ -302,7 +307,7 @@ function App() {
     setDashboardMessage("");
 
     try {
-      const res = await fetch("/api/dashboards", {
+      const res = await fetch(`${getApiBaseUrl()}/api/dashboards`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -359,7 +364,9 @@ function App() {
 
                 {!isFirebaseConfigured && (
                   <p className="login-error login-error-soft">
-                    Firebase is not configured yet. Add the VITE_FIREBASE_* values to .env.local, then restart the dev server.
+                    {import.meta.env.PROD
+                      ? "Firebase is not configured yet. Set VITE_FIREBASE_* variables in Vercel and redeploy."
+                      : "Firebase is not configured yet. Add the VITE_FIREBASE_* values to .env.local, then restart the dev server."}
                   </p>
                 )}
 

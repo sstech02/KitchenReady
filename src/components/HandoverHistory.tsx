@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ShiftHandover } from "../models/ShiftHand";
-import { getSessionHeaders } from "../services/sessionHeaders";
+import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 
 type Props = {
   onClose: () => void;
@@ -37,7 +37,7 @@ function HandoverHistory({ onClose }: Props) {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch("/api/handovers", {
+    fetch(`${getApiBaseUrl()}/api/handovers`, {
       signal: controller.signal,
       headers: { ...getSessionHeaders() },
     })

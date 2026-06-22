@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import type { User } from "firebase/auth";
 import type { ShiftHandover } from "../models/ShiftHand";
-import type { PrepItem } from "../models/PrepItem";
+import { getApiBaseUrl } from "../services/sessionHeaders";
 import type { Unit } from "../models/Unit";
+import type { PrepItem } from "../models/PrepItem";
 import { UNITS } from "../models/Unit";
 import { getSessionHeaders } from "../services/sessionHeaders";
 
@@ -93,7 +94,7 @@ function ShiftHandoverForm({ currentUser, prepItems, onClose, onSubmitted }: Pro
     };
 
     try {
-      const res = await fetch("/api/handovers", {
+      const res = await fetch(`${getApiBaseUrl()}/api/handovers`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getSessionHeaders() },
         body: JSON.stringify(handover),

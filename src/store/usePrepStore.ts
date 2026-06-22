@@ -26,7 +26,7 @@ const persistUpdatedItem = async (
   }));
 
   try {
-    const res = await fetch(`http://localhost:4000/api/prep-items/${id}`, {
+    const res = await fetch(`/api/prep-items/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", ...getSessionHeaders() },
       body: JSON.stringify(updatedItem),
@@ -56,7 +56,7 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
       return;
     }
 
-    const res = await fetch("http://localhost:4000/api/prep-items", {
+    const res = await fetch("/api/prep-items", {
       headers: { ...getSessionHeaders() },
     });
     if (!res.ok) throw new Error("Failed to fetch prep items");

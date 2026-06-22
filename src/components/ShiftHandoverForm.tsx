@@ -93,7 +93,7 @@ function ShiftHandoverForm({ currentUser, prepItems, onClose, onSubmitted }: Pro
     };
 
     try {
-      const res = await fetch("http://localhost:4000/api/handovers", {
+      const res = await fetch("/api/handovers", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getSessionHeaders() },
         body: JSON.stringify(handover),

@@ -21,6 +21,7 @@ import type { Recipe } from "./models/Recipe";
 import { hasRoleAtLeast, type Role } from "./models/Role";
 import { auth, isFirebaseConfigured } from "./services/firebase";
 import {
+  getApiBaseUrl,
   getSessionHeaders,
   getStoredDashboardId,
   setStoredDashboardId,
@@ -67,7 +68,7 @@ function App() {
   };
 
   const fetchDashboards = useCallback(async (userEmail: string, preferredDashboardId?: string) => {
-    const res = await fetch("http://localhost:4000/api/dashboards", {
+    const res = await fetch("https://railway.com/project/9603d169-bef2-4b92-b1d4-ca3b6f1c8f9b/settings/webhooks/new?environmentId=abc3a824-a0c5-4c0e-9cbe-b7217a7b84ee", {
       headers: {
         "x-user-email": userEmail,
       },
@@ -95,7 +96,7 @@ function App() {
       return [] as Recipe[];
     }
 
-    const res = await fetch("http://localhost:4000/api/recipes", {
+    const res = await fetch(`${getApiBaseUrl()}/api/recipes`, {
       headers: { ...getSessionHeaders() },
     });
     if (!res.ok) {
@@ -302,7 +303,7 @@ function App() {
     setDashboardMessage("");
 
     try {
-      const res = await fetch("http://localhost:4000/api/dashboards", {
+      const res = await fetch(`${getApiBaseUrl()}/api/dashboards`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

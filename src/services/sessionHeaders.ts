@@ -23,6 +23,15 @@ export const setStoredDashboardId = (value: string | null) => {
   localStorage.removeItem(dashboardIdKey);
 };
 
+export const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl) {
+    return envUrl.replace(/\/$/, ""); // Remove trailing slash
+  }
+  // Default to localhost for local dev
+  return "http://localhost:4000";
+};
+
 export const getSessionHeaders = (): Record<string, string> => {
   const headers: Record<string, string> = {};
   const userEmail = getStoredUserEmail();

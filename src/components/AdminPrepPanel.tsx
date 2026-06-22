@@ -103,7 +103,7 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     setCreating(true);
 
     try {
-      const res = await fetch("http://localhost:4000/api/prep-items", {
+      const res = await fetch(`${getApiBaseUrl()}/api/prep-items`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

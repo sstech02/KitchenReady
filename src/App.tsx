@@ -56,6 +56,10 @@ function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMembersPanel, setShowMembersPanel] = useState(false);
 
+  const firebaseMissingMessage = import.meta.env.PROD
+    ? "Firebase is not configured. Set VITE_FIREBASE_* variables in Vercel and redeploy."
+    : "Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.";
+
   const selectedDashboard = dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const currentRole: Role | null = selectedDashboard?.role ?? null;
   const canOperate = hasRoleAtLeast(currentRole, "operator");
@@ -68,7 +72,7 @@ function App() {
   };
 
   const fetchDashboards = useCallback(async (userEmail: string, preferredDashboardId?: string) => {
-    const res = await fetch("https://railway.com/project/9603d169-bef2-4b92-b1d4-ca3b6f1c8f9b/settings/webhooks/new?environmentId=abc3a824-a0c5-4c0e-9cbe-b7217a7b84ee", {
+    const res = await fetch(`${getApiBaseUrl()}/api/dashboards`, {
       headers: {
         "x-user-email": userEmail,
       },
@@ -178,7 +182,7 @@ function App() {
 
   const handleGoogleSignIn = async () => {
     if (!auth) {
-      setAuthError("Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.");
+      setAuthError(firebaseMissingMessage);
       return;
     }
 
@@ -198,7 +202,7 @@ function App() {
     event.preventDefault();
 
     if (!auth) {
-      setAuthError("Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.");
+      setAuthError(firebaseMissingMessage);
       return;
     }
 
@@ -219,7 +223,7 @@ function App() {
     event.preventDefault();
 
     if (!auth) {
-      setAuthError("Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.");
+      setAuthError(firebaseMissingMessage);
       return;
     }
 
@@ -246,7 +250,7 @@ function App() {
     event.preventDefault();
 
     if (!auth) {
-      setAuthError("Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.");
+      setAuthError(firebaseMissingMessage);
       return;
     }
 
@@ -360,7 +364,9 @@ function App() {
 
                 {!isFirebaseConfigured && (
                   <p className="login-error login-error-soft">
-                    Firebase is not configured yet. Add the VITE_FIREBASE_* values to .env.local, then restart the dev server.
+                    {import.meta.env.PROD
+                      ? "Firebase is not configured yet. Set VITE_FIREBASE_* variables in Vercel and redeploy."
+                      : "Firebase is not configured yet. Add the VITE_FIREBASE_* values to .env.local, then restart the dev server."}
                   </p>
                 )}
 

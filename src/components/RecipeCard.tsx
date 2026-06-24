@@ -55,6 +55,32 @@ function RecipeCard({ recipe }: RecipeCardProps) {
         ))}
       </div>
 
+      {(recipe.guideUrl || recipe.videoSearchUrl) && (
+        <div className="recipe-resource-actions" aria-label={`${recipe.name} learning resources`}>
+          {recipe.guideUrl && (
+            <a
+              className="recipe-resource-link"
+              href={recipe.guideUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open guide
+            </a>
+          )}
+
+          {recipe.videoSearchUrl && (
+            <a
+              className="recipe-resource-link recipe-resource-link-secondary"
+              href={recipe.videoSearchUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Search video
+            </a>
+          )}
+        </div>
+      )}
+
       <section className="recipe-ingredients" aria-label={`${recipe.name} ingredients`}>
         {scaledRecipe.ingredients.map((ingredient) => (
           <div key={ingredient.id} className="recipe-ingredient-row">

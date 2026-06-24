@@ -5,6 +5,8 @@ export interface Recipe {
   id: string;
   name: string;
   category?: string;
+  guideUrl?: string;
+  videoSearchUrl?: string;
   ingredients: Ingredient[];
   steps: string[];
   yieldAmount: number;

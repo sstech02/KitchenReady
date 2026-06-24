@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
@@ -17,6 +17,7 @@ import HandoverHistory from "./components/HandoverHistory";
 import AdminPrepPanel from "./components/AdminPrepPanel";
 import DashboardMembersPanel from "./components/DashboardMembersPanel";
 import type { DashboardSummary } from "./models/Dashboard";
+import type { PrepItem as PrepItemModel } from "./models/PrepItem";
 import type { Recipe } from "./models/Recipe";
 import { hasRoleAtLeast, type Role } from "./models/Role";
 import { auth, isFirebaseConfigured } from "./services/firebase";
@@ -28,6 +29,45 @@ import {
   setStoredUserEmail,
 } from "./services/sessionHeaders";
 import { usePrepStore } from "./store/usePrepStore";
+
+const reorderRecipeIds = (recipeIds: string[], sourceId: string, targetId: string) => {
+  if (sourceId === targetId) {
+    return recipeIds;
+  }
+
+  const next = recipeIds.filter((id) => id !== sourceId);
+  const targetIndex = next.indexOf(targetId);
+
+  if (targetIndex === -1) {
+    return [...next, sourceId];
+  }
+
+  next.splice(targetIndex, 0, sourceId);
+  return next;
+};
+
+const reorderPrepIds = (prepIds: string[], sourceId: string, targetId: string) => {
+  if (sourceId === targetId) {
+    return prepIds;
+  }
+
+  const next = prepIds.filter((id) => id !== sourceId);
+  const targetIndex = next.indexOf(targetId);
+
+  if (targetIndex === -1) {
+    return [...next, sourceId];
+  }
+
+  next.splice(targetIndex, 0, sourceId);
+  return next;
+};
+
+type DragPayload = {
+  kind: "recipe" | "prep";
+  id: string;
+};
+
+const normalizeLookupValue = (value: string) => value.trim().toLowerCase();
 
 function App() {
   const prepItems = usePrepStore((state) => state.items);
@@ -56,6 +96,31 @@ function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMembersPanel, setShowMembersPanel] = useState(false);
 
+  // ── Theme, zoom & UI ─────────────────────────────────────────
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    (localStorage.getItem("kr-theme") as "light" | "dark") ?? "light"
+  );
+  const [zoom, setZoom] = useState<number>(() => Number(localStorage.getItem("kr-zoom")) || 100);
+  const [showGuide, setShowGuide] = useState(false);
+  const [prepLoading, setPrepLoading] = useState(false);
+  const [recipesLoading, setRecipesLoading] = useState(false);
+  const [prepOrder, setPrepOrder] = useState<string[]>([]);
+  const [recipeOrder, setRecipeOrder] = useState<string[]>([]);
+  const [draggedPrepId, setDraggedPrepId] = useState<string | null>(null);
+  const [dragOverPrepId, setDragOverPrepId] = useState<string | null>(null);
+  const [activeScaledRecipeId, setActiveScaledRecipeId] = useState<string | null>(null);
+  const [draggedRecipeId, setDraggedRecipeId] = useState<string | null>(null);
+  const [dragOverRecipeId, setDragOverRecipeId] = useState<string | null>(null);
+  const [isScalerDragOver, setIsScalerDragOver] = useState(false);
+  const [isLibraryDragOver, setIsLibraryDragOver] = useState(false);
+  const [scalerDropMessage, setScalerDropMessage] = useState("");
+  const [libraryDropMessage, setLibraryDropMessage] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const scrollObserverRef = useRef<IntersectionObserver | null>(null);
+
   const firebaseMissingMessage = import.meta.env.PROD
     ? "Firebase is not configured. Set VITE_FIREBASE_* variables in Vercel and redeploy."
     : "Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.";
@@ -65,6 +130,27 @@ function App() {
   const canOperate = hasRoleAtLeast(currentRole, "operator");
   const canLead = hasRoleAtLeast(currentRole, "lead");
   const isAdmin = hasRoleAtLeast(currentRole, "admin");
+  const isDeleteNameMatch = deleteConfirmName.trim() === (selectedDashboard?.businessName ?? "");
+
+  const orderedRecipes = useMemo(() => {
+    const recipeMap = new Map(recipes.map((recipe) => [recipe.id, recipe]));
+    const ordered = recipeOrder
+      .map((recipeId) => recipeMap.get(recipeId))
+      .filter((recipe): recipe is Recipe => Boolean(recipe));
+    const missing = recipes.filter((recipe) => !recipeOrder.includes(recipe.id));
+    return [...ordered, ...missing];
+  }, [recipeOrder, recipes]);
+
+  const orderedPrepItems = useMemo(() => {
+    const prepMap = new Map(prepItems.map((item) => [item.id, item]));
+    const ordered = prepOrder
+      .map((itemId) => prepMap.get(itemId))
+      .filter((item): item is PrepItemModel => Boolean(item));
+    const missing = prepItems.filter((item) => !prepOrder.includes(item.id));
+    return [...ordered, ...missing];
+  }, [prepItems, prepOrder]);
+
+  const activeScaledRecipe = orderedRecipes.find((recipe) => recipe.id === activeScaledRecipeId) ?? orderedRecipes[0] ?? null;
 
   const setSelectedDashboard = (dashboardId: string) => {
     setSelectedDashboardIdState(dashboardId);
@@ -111,6 +197,35 @@ function App() {
     return recipeItems;
   }, [selectedDashboardId]);
 
+  // Persist & apply theme
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("kr-theme", theme);
+  }, [theme]);
+
+  // Persist zoom
+  useEffect(() => {
+    localStorage.setItem("kr-zoom", String(zoom));
+  }, [zoom]);
+
+  // Scroll-reveal observer – re-run whenever content changes
+  useEffect(() => {
+    scrollObserverRef.current?.disconnect();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+          }
+        });
+      },
+      { threshold: 0.08 }
+    );
+    scrollObserverRef.current = observer;
+    document.querySelectorAll(".scroll-reveal").forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [prepItems, recipes]);
+
   useEffect(() => {
     if (!auth) {
       return;
@@ -149,18 +264,67 @@ function App() {
       return;
     }
 
-    fetchItems().catch((err) => {
-      console.error("Failed loading prep items:", err);
-    });
+    setPrepLoading(true);
+    fetchItems()
+      .catch((err) => {
+        console.error("Failed loading prep items:", err);
+      })
+      .finally(() => setPrepLoading(false));
 
+    setRecipesLoading(true);
     fetchRecipes()
       .then((recipeItems) => {
         setRecipes(recipeItems);
       })
       .catch((err) => {
         console.error("Failed loading recipes:", err);
-      });
+      })
+      .finally(() => setRecipesLoading(false));
   }, [fetchItems, fetchRecipes, user]);
+
+  useEffect(() => {
+    const prepIds = prepItems.map((item) => item.id);
+
+    setPrepOrder((current) => {
+      const retained = current.filter((id) => prepIds.includes(id));
+      const additions = prepIds.filter((id) => !retained.includes(id));
+      const next = [...retained, ...additions];
+
+      if (next.length === current.length && next.every((id, index) => id === current[index])) {
+        return current;
+      }
+
+      return next;
+    });
+  }, [prepItems]);
+
+  useEffect(() => {
+    const recipeIds = recipes.map((recipe) => recipe.id);
+
+    setRecipeOrder((current) => {
+      const retained = current.filter((id) => recipeIds.includes(id));
+      const additions = recipeIds.filter((id) => !retained.includes(id));
+      const next = [...retained, ...additions];
+
+      if (next.length === current.length && next.every((id, index) => id === current[index])) {
+        return current;
+      }
+
+      return next;
+    });
+
+    setActiveScaledRecipeId((current) => {
+      if (recipeIds.length === 0) {
+        return null;
+      }
+
+      if (current && recipeIds.includes(current)) {
+        return current;
+      }
+
+      return recipeIds[0];
+    });
+  }, [recipes]);
 
   const goToLogin = () => {
     setModalView("login");
@@ -349,11 +513,216 @@ function App() {
     await fetchDashboards(user.email, selectedDashboardId);
   };
 
+  const resetRecipeDragState = () => {
+    setDraggedPrepId(null);
+    setDragOverPrepId(null);
+    setDraggedRecipeId(null);
+    setDragOverRecipeId(null);
+    setIsScalerDragOver(false);
+    setIsLibraryDragOver(false);
+  };
+
+  const getDraggedPayloadFromEvent = (event: DragEvent<HTMLElement>): DragPayload | null => {
+    const raw = event.dataTransfer.getData("text/plain");
+
+    if (raw.includes(":")) {
+      const [kind, ...rest] = raw.split(":");
+      const id = rest.join(":");
+
+      if ((kind === "recipe" || kind === "prep") && id) {
+        return { kind, id };
+      }
+    }
+
+    if (draggedRecipeId) {
+      return { kind: "recipe", id: draggedRecipeId };
+    }
+
+    if (draggedPrepId) {
+      return { kind: "prep", id: draggedPrepId };
+    }
+
+    return null;
+  };
+
+  const resolveRecipeForPrepItem = (prepItemId: string) => {
+    const prepItem = orderedPrepItems.find((item) => item.id === prepItemId);
+    if (!prepItem) {
+      return null;
+    }
+
+    const linkedRecipe = prepItem.recipeId
+      ? orderedRecipes.find((recipe) => recipe.id === prepItem.recipeId)
+      : orderedRecipes.find((recipe) => normalizeLookupValue(recipe.name) === normalizeLookupValue(prepItem.name));
+
+    return {
+      prepItem,
+      recipe: linkedRecipe ?? null,
+    };
+  };
+
+  const handleRecipeDragStart = (recipeId: string, event: DragEvent<HTMLDivElement>) => {
+    setDraggedRecipeId(recipeId);
+    setDraggedPrepId(null);
+    setScalerDropMessage("");
+    setLibraryDropMessage("");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `recipe:${recipeId}`);
+  };
+
+  const handlePrepDragStart = (prepItemId: string, event: DragEvent<HTMLDivElement>) => {
+    setDraggedPrepId(prepItemId);
+    setDraggedRecipeId(null);
+    setScalerDropMessage("");
+    setLibraryDropMessage("");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `prep:${prepItemId}`);
+  };
+
+  const promoteRecipeToLibraryFront = (recipeId: string) => {
+    setRecipeOrder((current) => {
+      const baseOrder = current.length > 0 ? current : recipes.map((recipe) => recipe.id);
+      const next = baseOrder.filter((id) => id !== recipeId);
+      return [recipeId, ...next];
+    });
+  };
+
+  const handleLoadPrepIntoLibrary = (prepItemId: string) => {
+    const resolution = resolveRecipeForPrepItem(prepItemId);
+
+    if (!resolution?.prepItem) {
+      return;
+    }
+
+    if (!resolution.recipe) {
+      setLibraryDropMessage(`No linked recipe found for prep item ${resolution.prepItem.name}.`);
+      return;
+    }
+
+    promoteRecipeToLibraryFront(resolution.recipe.id);
+    setLibraryDropMessage(`Loaded ${resolution.recipe.name} into the recipe library from prep item ${resolution.prepItem.name}.`);
+  };
+
+  const handleRecipeDropOnScaler = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+
+    const payload = getDraggedPayloadFromEvent(event);
+    if (!payload) {
+      resetRecipeDragState();
+      return;
+    }
+
+    if (payload.kind === "recipe") {
+      setActiveScaledRecipeId(payload.id);
+      setScalerDropMessage("");
+    } else {
+      const resolution = resolveRecipeForPrepItem(payload.id);
+
+      if (resolution?.recipe) {
+        setActiveScaledRecipeId(resolution.recipe.id);
+        setScalerDropMessage(`Loaded ${resolution.recipe.name} from prep item ${resolution.prepItem.name}.`);
+      } else if (resolution?.prepItem) {
+        setScalerDropMessage(`No linked recipe found for prep item ${resolution.prepItem.name}.`);
+      }
+    }
+
+    resetRecipeDragState();
+  };
+
+  const handleRecipeDropOnCard = (targetId: string, event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+
+    const payload = getDraggedPayloadFromEvent(event);
+    if (!payload || payload.kind !== "recipe") {
+      resetRecipeDragState();
+      return;
+    }
+
+    setRecipeOrder((current) => reorderRecipeIds(current.length > 0 ? current : recipes.map((recipe) => recipe.id), payload.id, targetId));
+    setDragOverRecipeId(null);
+    setDraggedRecipeId(payload.id);
+  };
+
+  const handlePrepDropOnLibrary = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+
+    const payload = getDraggedPayloadFromEvent(event);
+    if (!payload || payload.kind !== "prep") {
+      resetRecipeDragState();
+      return;
+    }
+
+    const resolution = resolveRecipeForPrepItem(payload.id);
+
+    if (resolution?.recipe) {
+      promoteRecipeToLibraryFront(resolution.recipe.id);
+      setLibraryDropMessage(`Loaded ${resolution.recipe.name} into the recipe library from prep item ${resolution.prepItem.name}.`);
+    } else if (resolution?.prepItem) {
+      setLibraryDropMessage(`No linked recipe found for prep item ${resolution.prepItem.name}.`);
+    }
+
+    resetRecipeDragState();
+  };
+
+  const handlePrepDropOnCard = (targetId: string, event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+
+    const payload = getDraggedPayloadFromEvent(event);
+    if (!payload || payload.kind !== "prep") {
+      resetRecipeDragState();
+      return;
+    }
+
+    setPrepOrder((current) => reorderPrepIds(current.length > 0 ? current : prepItems.map((item) => item.id), payload.id, targetId));
+    setDragOverPrepId(null);
+    setDraggedPrepId(payload.id);
+  };
+
+  const handleDeleteDashboard = async () => {
+    if (!user?.email || !selectedDashboardId) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    setDeleteError("");
+
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/dashboards/${selectedDashboardId}`, {
+        method: "DELETE",
+        headers: { ...getSessionHeaders() },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const message = typeof body?.error === "string" ? body.error : "Failed to delete dashboard.";
+        throw new Error(message);
+      }
+
+      setDeleteConfirm(false);
+      await fetchDashboards(user.email);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Failed to delete dashboard.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <main className="app-shell">
       {!user && (
         <section className="login-modal" aria-label="Login modal">
           <div className="login-card">
+            <div className="login-card-toolbar">
+              <button
+                type="button"
+                className="theme-toggle"
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                title={theme === "dark" ? "Light mode" : "Dark mode"}
+              >
+                {theme === "dark" ? "☀️" : "🌙"}
+              </button>
+            </div>
             <p className="login-eyebrow">KitchenReady access</p>
             {modalView === "login" && (
               <>
@@ -518,7 +887,7 @@ function App() {
       )}
 
       {user && (
-        <section className="dashboard" aria-label="Prep list dashboard">
+        <section className="dashboard" style={{ zoom: `${zoom}%` }} aria-label="Prep list dashboard">
           <header className="dashboard-header">
             <div className="dashboard-topbar">
               <div>
@@ -530,29 +899,134 @@ function App() {
                 </p>
 
                 <div className="dashboard-switcher-wrap">
-                  <label className="dashboard-switcher-label">
-                    <span>Dashboard</span>
-                    <select
-                      value={selectedDashboardId}
-                      onChange={(event) => {
-                        setSelectedDashboard(event.target.value);
-                        setDashboardMessage("");
-                        setDashboardError("");
-                      }}
-                    >
-                      {dashboards.length === 0 && <option value="">No dashboards available</option>}
-                      {dashboards.map((dashboard) => (
-                        <option key={dashboard.id} value={dashboard.id}>
-                          {dashboard.businessName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <div className="dashboard-switcher-controls">
+                    <label className="dashboard-switcher-label">
+                      <span>Dashboard</span>
+                      <div className="dashboard-switcher-inputs">
+                        <select
+                          value={selectedDashboardId}
+                          onChange={(event) => {
+                            setSelectedDashboard(event.target.value);
+                            setDashboardMessage("");
+                            setDashboardError("");
+                            setDeleteConfirm(false);
+                            setDeleteConfirmName("");
+                            setDeleteError("");
+                          }}
+                        >
+                          {dashboards.length === 0 && <option value="">No dashboards available</option>}
+                          {dashboards.map((dashboard) => (
+                            <option key={dashboard.id} value={dashboard.id}>
+                              {dashboard.businessName}
+                            </option>
+                          ))}
+                        </select>
+
+                        {isAdmin && selectedDashboardId && (
+                          <button
+                            type="button"
+                            className="dashboard-delete-trigger"
+                            onClick={() => {
+                              setDeleteConfirm((current) => !current);
+                              setDeleteConfirmName("");
+                              setDeleteError("");
+                            }}
+                            disabled={deleteLoading}
+                            aria-label={`Delete ${selectedDashboard?.businessName ?? "dashboard"}`}
+                            title="Delete dashboard"
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M9 3.75h6a1.5 1.5 0 0 1 1.5 1.5v.75H20a.75.75 0 0 1 0 1.5h-1.02l-.74 11.06A2.25 2.25 0 0 1 16 20.75H8a2.25 2.25 0 0 1-2.24-2.19L5.02 7.5H4a.75.75 0 0 1 0-1.5h3.5v-.75A1.5 1.5 0 0 1 9 3.75Zm6 2.25v-.75h-6V6h6ZM6.52 7.5l.73 10.96a.75.75 0 0 0 .75.79H16a.75.75 0 0 0 .75-.79l.73-10.96H6.52Zm3.23 2.25a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0v-5.5a.75.75 0 0 1 .75-.75Zm4.5 0a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0v-5.5a.75.75 0 0 1 .75-.75Z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </label>
+
+                    {deleteConfirm && isAdmin && selectedDashboardId && (
+                      <div className="dashboard-delete-popover" role="alert">
+                        <p className="dashboard-delete-copy">
+                          Type <strong>{selectedDashboard?.businessName}</strong> to confirm deletion.
+                        </p>
+                        <label className="dashboard-delete-field">
+                          <span className="dashboard-delete-label">Dashboard name</span>
+                          <input
+                            type="text"
+                            value={deleteConfirmName}
+                            onChange={(event) => {
+                              setDeleteConfirmName(event.target.value);
+                              setDeleteError("");
+                            }}
+                            placeholder={selectedDashboard?.businessName ?? "Dashboard name"}
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                        </label>
+                        <div className="dashboard-delete-actions">
+                          <button
+                            type="button"
+                            className="dashboard-delete-confirm"
+                            onClick={handleDeleteDashboard}
+                            disabled={deleteLoading || !isDeleteNameMatch}
+                          >
+                            {deleteLoading ? "Deleting..." : "Delete"}
+                          </button>
+                          <button
+                            type="button"
+                            className="dashboard-delete-cancel"
+                            onClick={() => {
+                              setDeleteConfirm(false);
+                              setDeleteConfirmName("");
+                              setDeleteError("");
+                            }}
+                            disabled={deleteLoading}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {!isDeleteNameMatch && deleteConfirmName.trim().length > 0 && (
+                          <p className="dashboard-delete-hint">The entered name must exactly match the selected dashboard.</p>
+                        )}
+                        {deleteError && <p className="dashboard-delete-error">{deleteError}</p>}
+                      </div>
+                    )}
+                  </div>
                   <span className="dashboard-role-pill">{currentRole ? currentRole.toUpperCase() : "NO ROLE"}</span>
                 </div>
               </div>
 
               <div className="dashboard-userbar">
+                <div className="dashboard-toolbar">
+                  <button
+                    type="button"
+                    className="theme-toggle"
+                    aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                    title={theme === "dark" ? "Light mode" : "Dark mode"}
+                  >
+                    {theme === "dark" ? "☀️" : "🌙"}
+                  </button>
+                  <div className="zoom-controls" aria-label="Zoom controls">
+                    <span className="zoom-value">{zoom}%</span>
+                    <input
+                      type="range"
+                      className="zoom-slider"
+                      min={75}
+                      max={150}
+                      step={25}
+                      value={zoom}
+                      onChange={(e) => setZoom(Number(e.target.value))}
+                      aria-label="Zoom level"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="guide-btn"
+                    onClick={() => setShowGuide(true)}
+                  >
+                    ? Guide
+                  </button>
+                </div>
                 <span className="dashboard-user">{user.email || "Signed in"}</span>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
                   {isAdmin && (
@@ -671,25 +1145,172 @@ function App() {
           {selectedDashboardId ? (
             <>
               <section className="prep-grid-layout" aria-label="Prep item cards">
-                {prepItems.map((item) => (
-                  <PrepItem key={item.id} item={item} canEdit={canOperate} />
-                ))}
+                {prepLoading
+                  ? Array.from({ length: 6 }, (_, i) => (
+                      <div key={i} className="skeleton-card scroll-reveal">
+                        <div className="skeleton-row">
+                          <div className="skeleton skeleton-line" style={{ width: "62%" }} />
+                          <div className="skeleton skeleton-circle" />
+                        </div>
+                        <div className="skeleton skeleton-line skeleton-line-sm" style={{ width: "42%" }} />
+                        <div className="skeleton skeleton-line skeleton-line-sm" style={{ width: "68%" }} />
+                        <div className="skeleton skeleton-line skeleton-line-sm" style={{ width: "55%" }} />
+                        <div className="skeleton-row" style={{ borderTop: "1px solid var(--color-border-soft)", paddingTop: "10px" }}>
+                          <div className="skeleton skeleton-line-sm" style={{ width: "30%" }} />
+                          <div className="skeleton skeleton-line-sm" style={{ width: "28%" }} />
+                        </div>
+                      </div>
+                    ))
+                  : orderedPrepItems.map((item) => {
+                      const linkedRecipe = resolveRecipeForPrepItem(item.id)?.recipe;
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`scroll-reveal prep-draggable-shell${dragOverPrepId === item.id ? " is-drop-target" : ""}${linkedRecipe ? " has-linked-recipe" : ""}`}
+                          draggable
+                          onDragStart={(event) => handlePrepDragStart(item.id, event)}
+                          onDragEnd={resetRecipeDragState}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            if (draggedPrepId && draggedPrepId !== item.id) {
+                              setDragOverPrepId(item.id);
+                            }
+                          }}
+                          onDragLeave={() => {
+                            if (dragOverPrepId === item.id) {
+                              setDragOverPrepId(null);
+                            }
+                          }}
+                          onDrop={(event) => handlePrepDropOnCard(item.id, event)}
+                        >
+                          <div className="prep-drag-toolbar">
+                            <span className="prep-drag-hint">
+                              {linkedRecipe ? `Drag to reorder or drop into scaler/library for ${linkedRecipe.name}` : "Drag to reorder or drop into scaler/library"}
+                            </span>
+                            {linkedRecipe && (
+                              <button
+                                type="button"
+                                className="prep-load-button"
+                                onClick={() => {
+                                  handleLoadPrepIntoLibrary(item.id);
+                                }}
+                              >
+                                Load to library
+                              </button>
+                            )}
+                          </div>
+                          <PrepItem item={item} canEdit={canOperate} />
+                        </div>
+                      );
+                    })}
               </section>
 
-              <section className="recipes-panel" aria-label="Recipe scaling">
+              <section className="recipes-panel scroll-reveal" aria-label="Recipe scaling">
                 <div className="section-heading">
                   <div>
                     <h2 className="section-title">Recipe Scaling</h2>
                     <p className="section-copy">
-                      Adjust ingredient quantities for common batch sizes.
+                      Drag a recipe into the scaler, then reorder the remaining cards however you like.
                     </p>
                   </div>
                 </div>
 
-                <div className="recipe-grid-layout">
-                  {recipes.map((recipe) => (
-                    <RecipeCard key={recipe.id} recipe={recipe} />
-                  ))}
+                <div
+                  className={`recipe-scaler-zone${isScalerDragOver ? " is-drag-over" : ""}`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    if (draggedRecipeId || draggedPrepId) {
+                      setIsScalerDragOver(true);
+                    }
+                  }}
+                  onDragLeave={() => setIsScalerDragOver(false)}
+                  onDrop={handleRecipeDropOnScaler}
+                >
+                  <div className="recipe-scaler-copy">
+                    <p className="recipe-scaler-eyebrow">Scaler Drop Zone</p>
+                    <h3 className="recipe-scaler-title">
+                      {activeScaledRecipe ? activeScaledRecipe.name : "Drop a recipe card here"}
+                    </h3>
+                    <p className="recipe-scaler-text">
+                      {activeScaledRecipe
+                        ? "This recipe is loaded into the scaler. Drop another recipe or a linked prep card here to swap it instantly."
+                        : "Drag a recipe card or a prep card with a linked recipe into this area to load it into the scaler."}
+                    </p>
+                    {scalerDropMessage && <p className="recipe-scaler-status">{scalerDropMessage}</p>}
+                  </div>
+
+                  {activeScaledRecipe && (
+                    <div className="recipe-scaler-card">
+                      <RecipeCard recipe={activeScaledRecipe} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="recipe-library-heading">
+                  <h3 className="recipe-library-title">Recipe Library</h3>
+                  <p className="recipe-library-copy">Drag recipe cards to reorder. Drop prep cards here to load linked recipes into the library.</p>
+                  {libraryDropMessage && <p className="recipe-library-status">{libraryDropMessage}</p>}
+                </div>
+
+                <div
+                  className={`recipe-grid-layout${isLibraryDragOver ? " is-prep-drop-over" : ""}`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    if (draggedPrepId) {
+                      setIsLibraryDragOver(true);
+                    }
+                  }}
+                  onDragLeave={() => setIsLibraryDragOver(false)}
+                  onDrop={handlePrepDropOnLibrary}
+                >
+                  {recipesLoading
+                    ? Array.from({ length: 3 }, (_, i) => (
+                        <div key={i} className="skeleton-card scroll-reveal">
+                          <div className="skeleton-row">
+                            <div style={{ flex: 1 }}>
+                              <div className="skeleton skeleton-line-sm" style={{ width: "80px", marginBottom: "8px" }} />
+                              <div className="skeleton skeleton-line-lg" style={{ width: "70%" }} />
+                            </div>
+                          </div>
+                          <div className="skeleton skeleton-line-sm" style={{ width: "100%" }} />
+                          <div className="skeleton skeleton-line-sm" style={{ width: "88%" }} />
+                          <div className="skeleton skeleton-line-sm" style={{ width: "74%" }} />
+                        </div>
+                      ))
+                    : orderedRecipes.map((recipe) => (
+                        <div
+                          key={recipe.id}
+                          className={`scroll-reveal recipe-draggable-shell${recipe.id === activeScaledRecipeId ? " is-active" : ""}${dragOverRecipeId === recipe.id ? " is-drop-target" : ""}`}
+                          draggable
+                          onDragStart={(event) => handleRecipeDragStart(recipe.id, event)}
+                          onDragEnd={resetRecipeDragState}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            if (draggedRecipeId && draggedRecipeId !== recipe.id) {
+                              setDragOverRecipeId(recipe.id);
+                            }
+                          }}
+                          onDragLeave={() => {
+                            if (dragOverRecipeId === recipe.id) {
+                              setDragOverRecipeId(null);
+                            }
+                          }}
+                          onDrop={(event) => handleRecipeDropOnCard(recipe.id, event)}
+                        >
+                          <div className="recipe-drag-toolbar">
+                            <span className="recipe-drag-hint">Drag to reorder or drop into scaler</span>
+                            <button
+                              type="button"
+                              className="recipe-load-button"
+                              onClick={() => setActiveScaledRecipeId(recipe.id)}
+                            >
+                              Load into scaler
+                            </button>
+                          </div>
+                          <RecipeCard recipe={recipe} />
+                        </div>
+                      ))}
                 </div>
               </section>
             </>
@@ -729,6 +1350,150 @@ function App() {
           onClose={() => setShowMembersPanel(false)}
           onMembershipChanged={handleMembershipChanged}
         />
+      )}
+
+      {showGuide && (
+        <div className="guide-overlay" role="dialog" aria-modal="true" aria-label="KitchenReady Guide">
+          <div className="guide-panel">
+            <div className="guide-header">
+              <div>
+                <p className="guide-eyebrow">KitchenReady</p>
+                <h2 className="guide-title">How to Use This App</h2>
+              </div>
+              <button
+                type="button"
+                className="guide-close"
+                onClick={() => setShowGuide(false)}
+                aria-label="Close guide"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="guide-body">
+              {/* Video walkthrough */}
+              <section className="guide-section">
+                <h3 className="guide-section-title">Video Walkthrough</h3>
+                <div className="guide-video-wrap">
+                  <iframe
+                    src="https://www.youtube.com/embed/dEDCqVHeHtg"
+                    title="KitchenReady walkthrough"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+                <p className="guide-section-body">
+                  Watch the overview above to get up and running quickly, or follow the written steps below.
+                </p>
+              </section>
+
+              <div className="guide-divider" />
+
+              {/* Getting started */}
+              <section className="guide-section">
+                <h3 className="guide-section-title">Getting Started</h3>
+                <ol className="guide-steps">
+                  <li className="guide-step">
+                    <span><strong>Sign in</strong> with your Google account or create an email/password account from the login screen.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span><strong>Create a dashboard</strong> by entering your business name and the initial admin email in the "Create New Dashboard" form, then click <em>Create Dashboard</em>.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span><strong>Add team members</strong> using the <em>Manage Team</em> button (admin only). Assign each member a role: operator, lead, or admin.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span><strong>Switch dashboards</strong> using the dropdown in the header if you belong to multiple kitchens.</span>
+                  </li>
+                </ol>
+              </section>
+
+              <div className="guide-divider" />
+
+              {/* Prep list */}
+              <section className="guide-section">
+                <h3 className="guide-section-title">Managing the Prep List</h3>
+                <ol className="guide-steps">
+                  <li className="guide-step">
+                    <span>Each <strong>prep card</strong> shows item name, station, priority, on-hand quantity, par level, and target quantity.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>Click the <strong>status pill</strong> (To do → In progress → Done) to cycle the status of a prep task.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>Use the <strong>+/−</strong> buttons to adjust on-hand quantity, par level, target quantity, and priority in real time.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>The <strong>progress bar</strong> at the top shows how many items have been completed out of the total for the shift.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>Admins can <strong>add, edit, or remove prep items</strong> via the <em>Admin Panel</em> button in the header.</span>
+                  </li>
+                </ol>
+              </section>
+
+              <div className="guide-divider" />
+
+              {/* Recipe scaling */}
+              <section className="guide-section">
+                <h3 className="guide-section-title">Recipe Scaling</h3>
+                <ol className="guide-steps">
+                  <li className="guide-step">
+                    <span>Scroll down to the <strong>Recipe Scaling</strong> panel to see all recipes assigned to the dashboard.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>Click a <strong>scale button</strong> (0.5×, 1×, 2×, 3×) on any recipe card to instantly recalculate all ingredient quantities for that batch size.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>Admins can manage recipes from the <em>Admin Panel</em>.</span>
+                  </li>
+                </ol>
+              </section>
+
+              <div className="guide-divider" />
+
+              {/* Shift handover */}
+              <section className="guide-section">
+                <h3 className="guide-section-title">Shift Handover</h3>
+                <ol className="guide-steps">
+                  <li className="guide-step">
+                    <span>Click <strong>Start Handover</strong> (lead or admin role required) to open the handover form.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>Fill in the <strong>business date, shift type, from/to users, shift summary</strong>, flag any low-stock items, and list issues or blockers.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>Check the <strong>sign-off checkbox</strong> to confirm the handover, then submit. The prep snapshot is saved automatically.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span>Click <strong>View Handovers</strong> to browse past handover records and filter by shift type.</span>
+                  </li>
+                </ol>
+              </section>
+
+              <div className="guide-divider" />
+
+              {/* UI controls */}
+              <section className="guide-section">
+                <h3 className="guide-section-title">UI Controls</h3>
+                <p className="guide-section-body">
+                  Use the toolbar in the top-right corner of the dashboard to customise your experience:
+                </p>
+                <ol className="guide-steps">
+                  <li className="guide-step">
+                    <span><strong>🌙 / ☀️ Toggle</strong> — switch between dark and light mode. Your preference is saved automatically.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span><strong>Zoom controls (−/+)</strong> — scale the dashboard content between 75 % and 150 % to suit your screen or preference.</span>
+                  </li>
+                  <li className="guide-step">
+                    <span><strong>? Guide</strong> — opens this help panel at any time.</span>
+                  </li>
+                </ol>
+              </section>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

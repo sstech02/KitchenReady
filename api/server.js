@@ -97,6 +97,22 @@ const getMembership = (dashboardId, userEmail) =>
 
 const hasRoleAtLeast = (actualRole, minimumRole) => roleRank[actualRole] >= roleRank[minimumRole];
 
+const buildSeedRecipesForDashboard = (dashboardId) => {
+  const now = new Date().toISOString();
+
+  return recipes.map((recipe) => ({
+    ...recipe,
+    id: randomUUID(),
+    dashboardId,
+    createdAt: now,
+    updatedAt: now,
+    ingredients: recipe.ingredients.map((ingredient) => ({
+      ...ingredient,
+      id: randomUUID(),
+    })),
+  }));
+};
+
 const persistPrepItems = async () => {
   await writeFile(prepItemsFilePath, JSON.stringify(prepItemsStore, null, 2), "utf-8");
 };
@@ -277,6 +293,16 @@ const loadDomainStores = async () => {
     dashboardId: recipe.dashboardId || defaultDashboardId,
   }));
 
+  const dashboardIdsMissingRecipes = dashboardsStore
+    .map((dashboard) => dashboard.id)
+    .filter((dashboardId) => !recipesStore.some((recipe) => recipe.dashboardId === dashboardId));
+
+  if (dashboardIdsMissingRecipes.length > 0) {
+    recipesStore.push(
+      ...dashboardIdsMissingRecipes.flatMap((dashboardId) => buildSeedRecipesForDashboard(dashboardId)),
+    );
+  }
+
   handoversStore = handoversStore.map((handover) => ({
     ...handover,
     dashboardId: handover.dashboardId || defaultDashboardId,
@@ -400,8 +426,28 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.get("/api/dashboards", requireUserEmail, (req, res) => {
-  const summaries = dashboardMembershipsStore
-    .filter((membership) => membership.userEmail === req.userEmail)
+  const userMemberships = dashboardMembershipsStore
+    .filter((membership) => membership.userEmail === req.userEmail);
+
+  if (userMemberships.length === 0 && defaultDashboardId) {
+    const now = new Date().toISOString();
+    const seededMembership = {
+      id: randomUUID(),
+      dashboardId: defaultDashboardId,
+      userEmail: req.userEmail,
+      role: "operator",
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    dashboardMembershipsStore.push(seededMembership);
+    void persistMemberships().catch((error) => {
+      console.warn("Failed to persist auto-enrolled membership:", error);
+    });
+    userMemberships.push(seededMembership);
+  }
+
+  const summaries = userMemberships
     .map((membership) => {
       const dashboard = dashboardsStore.find((item) => item.id === membership.dashboardId);
       if (!dashboard) {
@@ -450,6 +496,7 @@ app.post("/api/dashboards", requireUserEmail, async (req, res) => {
 
   dashboardsStore.push(dashboard);
   dashboardMembershipsStore.push(adminMembership);
+  recipesStore.push(...buildSeedRecipesForDashboard(dashboard.id));
 
   if (req.userEmail !== adminEmail) {
     dashboardMembershipsStore.push({
@@ -469,7 +516,35 @@ app.post("/api/dashboards", requireUserEmail, async (req, res) => {
   } catch {
     dashboardsStore = dashboardsStore.filter((item) => item.id !== dashboard.id);
     dashboardMembershipsStore = dashboardMembershipsStore.filter((item) => item.dashboardId !== dashboard.id);
+    recipesStore = recipesStore.filter((item) => item.dashboardId !== dashboard.id);
     return res.status(500).json({ error: "Failed to persist dashboard" });
+  }
+});
+
+app.delete("/api/dashboards/:id", requireUserEmail, requireDashboardContext, requireRole("admin"), async (req, res) => {
+  const id = req.dashboardId;
+
+  const prevDashboards = [...dashboardsStore];
+  const prevMemberships = [...dashboardMembershipsStore];
+  const prevPrepItems = [...prepItemsStore];
+  const prevHandovers = [...handoversStore];
+
+  dashboardsStore = dashboardsStore.filter((item) => item.id !== id);
+  dashboardMembershipsStore = dashboardMembershipsStore.filter((item) => item.dashboardId !== id);
+  prepItemsStore = prepItemsStore.filter((item) => item.dashboardId !== id);
+  handoversStore = handoversStore.filter((item) => item.dashboardId !== id);
+
+  try {
+    await persistDashboards();
+    await persistMemberships();
+    await persistPrepItems();
+    return res.status(200).json({ deleted: id });
+  } catch {
+    dashboardsStore = prevDashboards;
+    dashboardMembershipsStore = prevMemberships;
+    prepItemsStore = prevPrepItems;
+    handoversStore = prevHandovers;
+    return res.status(500).json({ error: "Failed to delete dashboard" });
   }
 });
 

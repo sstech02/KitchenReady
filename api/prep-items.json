@@ -33,7 +33,8 @@
     "priority": 1,
     "status": "todo",
     "assignedTo": "Lee",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "id": "prep-4",
@@ -68,7 +69,7 @@
     "targetQty": 0,
     "unit": "pan",
     "priority": 3,
-    "status": "done",
+    "status": "todo",
     "notes": "Do first",
     "id": "06989dac-5557-4fba-91af-9ea442593631",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
@@ -78,10 +79,10 @@
     "station": "Cold prep",
     "parLevel": 1,
     "onHand": 2,
-    "targetQty": 4,
+    "targetQty": 0,
     "unit": "each",
     "priority": 3,
-    "status": "done",
+    "status": "todo",
     "assignedTo": "Lee",
     "notes": "Use fresh first and then jarred",
     "id": "4c879574-070c-449c-88ac-d86e73396ac4",
@@ -113,6 +114,29 @@
     "assignedTo": "Brent",
     "notes": "Use starter dough",
     "id": "06021c8a-afd5-440d-81f9-cd26ba43531c",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+  },
+  {
+    "name": "Diced Onion",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "b0587fba-9197-4995-b96c-5ce05745a54b",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "129ec92c-1393-4944-bd82-8d7b4633481e"
+  },
+  {
+    "name": "Diced Onion",
+    "parLevel": 4,
+    "onHand": 1,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "2224b3d7-822d-431e-b7bf-beb2068d9eaa",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
   }
 ]

@@ -18,6 +18,10 @@ npm install
 npm run dev
 ```
 
+This command now starts both the Vite frontend and the API server together.
+
+If you sign in with a new email that has no dashboard membership yet, the API auto-enrolls that user into the default demo dashboard so prep and recipe data can load immediately.
+
 3. Build for production:
 
 ```bash

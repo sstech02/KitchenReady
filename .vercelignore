@@ -1,0 +1,8 @@
+api/
+node_modules/
+.git/
+.env
+.env.local
+.env.*.local
+*.test.ts
+*.test.tsx

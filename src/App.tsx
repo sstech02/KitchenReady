@@ -1510,24 +1510,6 @@ function App() {
             </div>
 
             <div className="guide-body">
-              {/* Video walkthrough */}
-              <section className="guide-section">
-                <h3 className="guide-section-title">Video Walkthrough</h3>
-                <div className="guide-video-wrap">
-                  <iframe
-                    src="https://www.youtube.com/embed/dEDCqVHeHtg"
-                    title="KitchenReady walkthrough"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-                <p className="guide-section-body">
-                  Watch the overview above to get up and running quickly, or follow the written steps below.
-                </p>
-              </section>
-
-              <div className="guide-divider" />
-
               {/* Getting started */}
               <section className="guide-section">
                 <h3 className="guide-section-title">Getting Started</h3>

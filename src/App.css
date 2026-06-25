@@ -2794,23 +2794,6 @@
 
 .guide-step strong { color: var(--color-text); }
 
-.guide-video-wrap {
-  position: relative;
-  padding-bottom: 56.25%;
-  height: 0;
-  border-radius: 16px;
-  overflow: hidden;
-  background: var(--color-skel-a);
-}
-
-.guide-video-wrap iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
 .guide-divider {
   height: 1px;
   background: var(--color-border-soft);

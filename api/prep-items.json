@@ -9,7 +9,8 @@
     "priority": 2,
     "status": "todo",
     "assignedTo": "Sam",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "id": "prep-2",
@@ -21,7 +22,8 @@
     "priority": 1,
     "status": "todo",
     "assignedTo": "Ari",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "id": "prep-3",
@@ -46,7 +48,8 @@
     "priority": 1,
     "status": "todo",
     "assignedTo": "Jordan",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "name": "Test",
@@ -59,7 +62,8 @@
     "status": "todo",
     "assignedTo": "Sam",
     "id": "d1ad7c7d-e1ce-445f-a9fd-3ce94c5a5665",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "name": "Burger patties",
@@ -72,7 +76,8 @@
     "status": "todo",
     "notes": "Do first",
     "id": "06989dac-5557-4fba-91af-9ea442593631",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-06989dac-5557-4fba-91af-9ea442593631"
   },
   {
     "name": "Roasted Garlic Aoli",
@@ -86,7 +91,8 @@
     "assignedTo": "Lee",
     "notes": "Use fresh first and then jarred",
     "id": "4c879574-070c-449c-88ac-d86e73396ac4",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-4c879574-070c-449c-88ac-d86e73396ac4"
   },
   {
     "name": "Fries",
@@ -100,21 +106,8 @@
     "assignedTo": "Jen",
     "notes": "Contact second supplier",
     "id": "4bb3c5cb-78fa-4758-b4a0-ff1f48fce269",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
-  },
-  {
-    "name": "Bread",
-    "station": "Bakery",
-    "parLevel": 3,
-    "onHand": 1,
-    "targetQty": 3,
-    "unit": "each",
-    "priority": 2,
-    "status": "in_progress",
-    "assignedTo": "Brent",
-    "notes": "Use starter dough",
-    "id": "06021c8a-afd5-440d-81f9-cd26ba43531c",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-4bb3c5cb-78fa-4758-b4a0-ff1f48fce269"
   },
   {
     "name": "Diced Onion",
@@ -126,7 +119,7 @@
     "status": "todo",
     "id": "b0587fba-9197-4995-b96c-5ce05745a54b",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "129ec92c-1393-4944-bd82-8d7b4633481e"
+    "recipeId": "prep-recipe-b0587fba-9197-4995-b96c-5ce05745a54b"
   },
   {
     "name": "Diced Onion",
@@ -137,6 +130,31 @@
     "priority": 2,
     "status": "todo",
     "id": "2224b3d7-822d-431e-b7bf-beb2068d9eaa",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-2224b3d7-822d-431e-b7bf-beb2068d9eaa"
+  },
+  {
+    "name": "Cheddar Cheese",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "14f1ac96-7018-4c70-a113-73e52e39ef8c",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-14f1ac96-7018-4c70-a113-73e52e39ef8c"
+  },
+  {
+    "name": "Mayo",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "5c2b74de-0f0d-4bac-b965-0aa98840a5da",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-5c2b74de-0f0d-4bac-b965-0aa98840a5da"
   }
 ]

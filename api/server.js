@@ -41,6 +41,12 @@ const parseEmails = (value) =>
     .filter(Boolean);
 
 const findIndexById = (list, id) => list.findIndex((item) => item.id === id);
+const normalizeLookupValue = (value) => String(value || "").trim().toLowerCase();
+const tokenizeLookupValue = (value) =>
+  normalizeLookupValue(value)
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 1);
+const PREP_FALLBACK_RECIPE_PREFIX = "prep-recipe-";
 
 const mergeWithUpdatedAt = (existing, payload) => ({
   ...existing,
@@ -111,6 +117,115 @@ const buildSeedRecipesForDashboard = (dashboardId) => {
       id: randomUUID(),
     })),
   }));
+};
+
+const buildPrepFallbackRecipeId = (prepItemId) => `${PREP_FALLBACK_RECIPE_PREFIX}${prepItemId}`;
+
+const upsertFallbackRecipeForPrepItem = (prepItem, dashboardId) => {
+  const fallbackId = buildPrepFallbackRecipeId(prepItem.id);
+  const now = new Date().toISOString();
+  const baseYieldAmount = Math.max(
+    Number(prepItem.targetQty) || 0,
+    Number(prepItem.parLevel) || 0,
+    Number(prepItem.onHand) || 0,
+    1,
+  );
+
+  const fallbackRecipe = {
+    id: fallbackId,
+    dashboardId,
+    name: prepItem.name,
+    category: prepItem.station || "Prep",
+    ingredients: [
+      {
+        id: `${fallbackId}-ingredient`,
+        name: prepItem.name,
+        quantity: baseYieldAmount,
+        unit: prepItem.unit,
+      },
+    ],
+    steps: ["Prep item quantity scales from target yield."],
+    yieldAmount: baseYieldAmount,
+    yieldUnit: prepItem.unit,
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const existingIndex = recipesStore.findIndex(
+    (recipe) => recipe.id === fallbackId && recipe.dashboardId === dashboardId,
+  );
+
+  if (existingIndex === -1) {
+    recipesStore.push(fallbackRecipe);
+  } else {
+    recipesStore[existingIndex] = {
+      ...recipesStore[existingIndex],
+      ...fallbackRecipe,
+      createdAt: recipesStore[existingIndex].createdAt || fallbackRecipe.createdAt,
+      updatedAt: now,
+    };
+  }
+
+  return fallbackId;
+};
+
+const resolveRecipeIdForPrepItem = (prepItem, dashboardId) => {
+  const dashboardRecipes = recipesStore.filter((recipe) => recipe.dashboardId === dashboardId);
+  if (dashboardRecipes.length === 0) {
+    return upsertFallbackRecipeForPrepItem(prepItem, dashboardId);
+  }
+
+  if (prepItem.recipeId) {
+    const linked = dashboardRecipes.find((recipe) => recipe.id === prepItem.recipeId);
+    if (linked) {
+      return linked.id;
+    }
+  }
+
+  const candidateRecipes = dashboardRecipes.filter(
+    (recipe) => !String(recipe.id || "").startsWith(PREP_FALLBACK_RECIPE_PREFIX),
+  );
+
+  if (candidateRecipes.length === 0) {
+    return upsertFallbackRecipeForPrepItem(prepItem, dashboardId);
+  }
+
+  const normalizedPrepName = normalizeLookupValue(prepItem.name);
+  const exactMatch = candidateRecipes.find(
+    (recipe) => normalizeLookupValue(recipe.name) === normalizedPrepName,
+  );
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+
+  const prepTokens = tokenizeLookupValue(prepItem.name);
+  let best = null;
+  let bestScore = 0;
+
+  for (const recipe of candidateRecipes) {
+    const normalizedRecipeName = normalizeLookupValue(recipe.name);
+    const containsBoost =
+      normalizedRecipeName.includes(normalizedPrepName) ||
+      normalizedPrepName.includes(normalizedRecipeName)
+        ? 100
+        : 0;
+
+    const recipeTokens = tokenizeLookupValue(recipe.name);
+    const overlapCount = prepTokens.filter((token) => recipeTokens.includes(token)).length;
+    const score = containsBoost + overlapCount;
+
+    if (score > bestScore) {
+      best = recipe;
+      bestScore = score;
+    }
+  }
+
+  if (best && bestScore > 0) {
+    return best.id;
+  }
+
+  return upsertFallbackRecipeForPrepItem(prepItem, dashboardId);
 };
 
 const persistPrepItems = async () => {
@@ -307,6 +422,21 @@ const loadDomainStores = async () => {
     ...handover,
     dashboardId: handover.dashboardId || defaultDashboardId,
   }));
+
+  let prepRecipeIdsTouched = false;
+  prepItemsStore = prepItemsStore.map((item) => {
+    const resolvedRecipeId = resolveRecipeIdForPrepItem(item, item.dashboardId || defaultDashboardId);
+    if (resolvedRecipeId === item.recipeId) {
+      return item;
+    }
+
+    prepRecipeIdsTouched = true;
+    return { ...item, recipeId: resolvedRecipeId };
+  });
+
+  if (prepRecipeIdsTouched) {
+    await persistPrepItems();
+  }
 };
 
 const requireAdminApiKey = (req, res, next) => {
@@ -360,25 +490,6 @@ const requireRole = (minimumRole) => (req, res, next) => {
   }
 
   return next();
-};
-
-const roundTo = (value, decimals = 2) => {
-  const factor = 10 ** decimals;
-  return Math.round(value * factor) / factor;
-};
-
-const scaleRecipe = (recipe, targetYield, decimals = 2) => {
-  const ratio = targetYield / recipe.yieldAmount;
-
-  return {
-    ...recipe,
-    ingredients: recipe.ingredients.map((ingredient) => ({
-      ...ingredient,
-      quantity: roundTo(ingredient.quantity * ratio, decimals),
-    })),
-    yieldAmount: roundTo(targetYield, decimals),
-    updatedAt: new Date().toISOString(),
-  };
 };
 
 const isObject = (v) => typeof v === "object" && v !== null;
@@ -671,56 +782,6 @@ app.get("/api/recipes", requireUserEmail, requireDashboardContext, (req, res) =>
   res.json(items);
 });
 
-app.get("/api/recipes/:id/scale", requireUserEmail, requireDashboardContext, (req, res) => {
-  const { id } = req.params;
-  const recipe = recipesStore.find((item) => item.id === id && item.dashboardId === req.dashboardId);
-
-  if (!recipe) {
-    return res.status(404).json({ error: "Recipe not found" });
-  }
-
-  const rawYield = req.query.yield;
-  const rawFactor = req.query.factor;
-  const decimals = Number(req.query.decimals ?? 2);
-
-  if (rawYield === undefined && rawFactor === undefined) {
-    return res.status(400).json({
-      error: "Provide either ?yield=<number> or ?factor=<number>",
-    });
-  }
-
-  if (rawYield !== undefined && rawFactor !== undefined) {
-    return res.status(400).json({
-      error: "Use only one query param: yield or factor",
-    });
-  }
-
-  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 6) {
-    return res.status(400).json({ error: "decimals must be an integer between 0 and 6" });
-  }
-
-  let targetYield;
-
-  if (rawYield !== undefined) {
-    targetYield = Number(rawYield);
-    if (!Number.isFinite(targetYield) || targetYield <= 0) {
-      return res.status(400).json({ error: "yield must be a positive number" });
-    }
-  } else {
-    const factor = Number(rawFactor);
-    if (!Number.isFinite(factor) || factor <= 0) {
-      return res.status(400).json({ error: "factor must be a positive number" });
-    }
-    targetYield = recipe.yieldAmount * factor;
-  }
-
-  if (!Number.isFinite(recipe.yieldAmount) || recipe.yieldAmount <= 0) {
-    return res.status(400).json({ error: "recipe yieldAmount must be a positive number" });
-  }
-
-  return res.json(scaleRecipe(recipe, targetYield, decimals));
-});
-
 app.get("/api/handovers", requireUserEmail, requireDashboardContext, (req, res) => {
   const items = handoversStore.filter((item) => item.dashboardId === req.dashboardId);
   res.json(items);
@@ -779,10 +840,14 @@ app.post("/api/prep-items", requireUserEmail, requireDashboardContext, requireRo
     return res.status(400).json({ error: "Invalid prep item payload" });
   }
 
+  const prepItemId = payload.id || randomUUID();
+  const resolvedPayload = { ...payload, id: prepItemId };
+  const recipeId = resolveRecipeIdForPrepItem(resolvedPayload, req.dashboardId);
+
   const newItem = {
-    ...payload,
-    id: payload.id || randomUUID(),
+    ...resolvedPayload,
     dashboardId: req.dashboardId,
+    recipeId,
   };
 
   prepItemsStore.push(newItem);
@@ -842,7 +907,10 @@ app.put("/api/prep-items/:id", requireUserEmail, requireDashboardContext, requir
     return res.status(404).json({ error: "Prep item not found" });
   }
 
-  const updated = { ...payload, id, dashboardId: req.dashboardId };
+  const resolvedPayload = { ...payload, id };
+  const recipeId = resolveRecipeIdForPrepItem(resolvedPayload, req.dashboardId);
+
+  const updated = { ...resolvedPayload, dashboardId: req.dashboardId, recipeId };
   prepItemsStore[idx] = updated;
   return persistPrepItems()
     .then(() => res.json(updated))
@@ -867,16 +935,17 @@ app.put("/api/recipes/:id", requireUserEmail, requireDashboardContext, requireRo
   const { id } = req.params;
   const payload = req.body;
 
-  if (!isValidRecipe(payload)) {
-    return res.status(400).json({ error: "Invalid recipe payload" });
-  }
-
   const idx = recipesStore.findIndex((item) => item.id === id && item.dashboardId === req.dashboardId);
   if (idx === -1) {
     return res.status(404).json({ error: "Recipe not found" });
   }
 
   const updated = mergeWithUpdatedAt(recipesStore[idx], { ...payload, id, dashboardId: req.dashboardId });
+  
+  if (!isValidRecipe(updated)) {
+    return res.status(400).json({ error: "Invalid recipe after merge" });
+  }
+
   recipesStore[idx] = updated;
   return res.json(updated);
 });

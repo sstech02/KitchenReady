@@ -11,10 +11,12 @@ import {
 } from "firebase/auth";
 import "./App.css";
 import PrepItem from "./components/PrepItem";
-import RecipeCard from "./components/RecipeCard";
+import RecipeDetailView from "./components/RecipeDetailView";
+import RecipeListView from "./components/RecipeListView";
 import ShiftHandoverForm from "./components/ShiftHandoverForm";
 import HandoverHistory from "./components/HandoverHistory";
 import AdminPrepPanel from "./components/AdminPrepPanel";
+import AdminRecipePanel from "./components/AdminRecipePanel";
 import DashboardMembersPanel from "./components/DashboardMembersPanel";
 import type { DashboardSummary } from "./models/Dashboard";
 import type { PrepItem as PrepItemModel } from "./models/PrepItem";
@@ -69,6 +71,11 @@ type DragPayload = {
 
 const normalizeLookupValue = (value: string) => value.trim().toLowerCase();
 
+const tokenizeLookupValue = (value: string) =>
+  normalizeLookupValue(value)
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 1);
+
 function App() {
   const prepItems = usePrepStore((state) => state.items);
   const fetchItems = usePrepStore((state) => state.fetchItems);
@@ -94,6 +101,7 @@ function App() {
   const [showHandover, setShowHandover] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showRecipePanel, setShowRecipePanel] = useState(false);
   const [showMembersPanel, setShowMembersPanel] = useState(false);
 
   // ── Theme, zoom & UI ─────────────────────────────────────────
@@ -106,14 +114,12 @@ function App() {
   const [recipesLoading, setRecipesLoading] = useState(false);
   const [prepOrder, setPrepOrder] = useState<string[]>([]);
   const [recipeOrder, setRecipeOrder] = useState<string[]>([]);
+  const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
   const [draggedPrepId, setDraggedPrepId] = useState<string | null>(null);
   const [dragOverPrepId, setDragOverPrepId] = useState<string | null>(null);
-  const [activeScaledRecipeId, setActiveScaledRecipeId] = useState<string | null>(null);
   const [draggedRecipeId, setDraggedRecipeId] = useState<string | null>(null);
   const [dragOverRecipeId, setDragOverRecipeId] = useState<string | null>(null);
-  const [isScalerDragOver, setIsScalerDragOver] = useState(false);
   const [isLibraryDragOver, setIsLibraryDragOver] = useState(false);
-  const [scalerDropMessage, setScalerDropMessage] = useState("");
   const [libraryDropMessage, setLibraryDropMessage] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
@@ -150,7 +156,8 @@ function App() {
     return [...ordered, ...missing];
   }, [prepItems, prepOrder]);
 
-  const activeScaledRecipe = orderedRecipes.find((recipe) => recipe.id === activeScaledRecipeId) ?? orderedRecipes[0] ?? null;
+  const activeRecipe =
+    orderedRecipes.find((recipe) => recipe.id === activeRecipeId) ?? orderedRecipes[0] ?? null;
 
   const setSelectedDashboard = (dashboardId: string) => {
     setSelectedDashboardIdState(dashboardId);
@@ -196,6 +203,24 @@ function App() {
     const recipeItems = (await res.json()) as Recipe[];
     return recipeItems;
   }, [selectedDashboardId]);
+
+  const handlePrepItemsChanged = useCallback(async () => {
+    try {
+      await fetchItems();
+    } catch (error) {
+      console.error("Failed to refresh prep items:", error);
+    }
+
+    try {
+      setRecipesLoading(true);
+      const recipeItems = await fetchRecipes();
+      setRecipes(recipeItems);
+    } catch (error) {
+      console.error("Failed to refresh recipes after prep item change:", error);
+    } finally {
+      setRecipesLoading(false);
+    }
+  }, [fetchItems, fetchRecipes]);
 
   // Persist & apply theme
   useEffect(() => {
@@ -313,7 +338,7 @@ function App() {
       return next;
     });
 
-    setActiveScaledRecipeId((current) => {
+    setActiveRecipeId((current) => {
       if (recipeIds.length === 0) {
         return null;
       }
@@ -518,7 +543,6 @@ function App() {
     setDragOverPrepId(null);
     setDraggedRecipeId(null);
     setDragOverRecipeId(null);
-    setIsScalerDragOver(false);
     setIsLibraryDragOver(false);
   };
 
@@ -553,18 +577,71 @@ function App() {
 
     const linkedRecipe = prepItem.recipeId
       ? orderedRecipes.find((recipe) => recipe.id === prepItem.recipeId)
-      : orderedRecipes.find((recipe) => normalizeLookupValue(recipe.name) === normalizeLookupValue(prepItem.name));
+      : undefined;
+
+    if (linkedRecipe) {
+      return {
+        prepItem,
+        recipe: linkedRecipe,
+      };
+    }
+
+    const normalizedPrepName = normalizeLookupValue(prepItem.name);
+    const exactMatch = orderedRecipes.find(
+      (recipe) => normalizeLookupValue(recipe.name) === normalizedPrepName,
+    );
+
+    if (exactMatch) {
+      return {
+        prepItem,
+        recipe: exactMatch,
+      };
+    }
+
+    const prepTokens = tokenizeLookupValue(prepItem.name);
+    const bestMatch = orderedRecipes.reduce<Recipe | null>((bestRecipe, recipe) => {
+      const normalizedRecipeName = normalizeLookupValue(recipe.name);
+
+      const containsBoost =
+        normalizedRecipeName.includes(normalizedPrepName) ||
+        normalizedPrepName.includes(normalizedRecipeName)
+          ? 100
+          : 0;
+
+      const recipeTokens = tokenizeLookupValue(recipe.name);
+      const overlapCount = prepTokens.filter((token) => recipeTokens.includes(token)).length;
+
+      const score = containsBoost + overlapCount;
+      if (score === 0) {
+        return bestRecipe;
+      }
+
+      if (!bestRecipe) {
+        return recipe;
+      }
+
+      const bestRecipeName = normalizeLookupValue(bestRecipe.name);
+      const bestContainsBoost =
+        bestRecipeName.includes(normalizedPrepName) ||
+        normalizedPrepName.includes(bestRecipeName)
+          ? 100
+          : 0;
+      const bestTokens = tokenizeLookupValue(bestRecipe.name);
+      const bestOverlapCount = prepTokens.filter((token) => bestTokens.includes(token)).length;
+      const bestScore = bestContainsBoost + bestOverlapCount;
+
+      return score > bestScore ? recipe : bestRecipe;
+    }, null);
 
     return {
       prepItem,
-      recipe: linkedRecipe ?? null,
+      recipe: bestMatch ?? null,
     };
   };
 
   const handleRecipeDragStart = (recipeId: string, event: DragEvent<HTMLDivElement>) => {
     setDraggedRecipeId(recipeId);
     setDraggedPrepId(null);
-    setScalerDropMessage("");
     setLibraryDropMessage("");
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", `recipe:${recipeId}`);
@@ -573,7 +650,6 @@ function App() {
   const handlePrepDragStart = (prepItemId: string, event: DragEvent<HTMLDivElement>) => {
     setDraggedPrepId(prepItemId);
     setDraggedRecipeId(null);
-    setScalerDropMessage("");
     setLibraryDropMessage("");
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", `prep:${prepItemId}`);
@@ -585,48 +661,6 @@ function App() {
       const next = baseOrder.filter((id) => id !== recipeId);
       return [recipeId, ...next];
     });
-  };
-
-  const handleLoadPrepIntoLibrary = (prepItemId: string) => {
-    const resolution = resolveRecipeForPrepItem(prepItemId);
-
-    if (!resolution?.prepItem) {
-      return;
-    }
-
-    if (!resolution.recipe) {
-      setLibraryDropMessage(`No linked recipe found for prep item ${resolution.prepItem.name}.`);
-      return;
-    }
-
-    promoteRecipeToLibraryFront(resolution.recipe.id);
-    setLibraryDropMessage(`Loaded ${resolution.recipe.name} into the recipe library from prep item ${resolution.prepItem.name}.`);
-  };
-
-  const handleRecipeDropOnScaler = (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-
-    const payload = getDraggedPayloadFromEvent(event);
-    if (!payload) {
-      resetRecipeDragState();
-      return;
-    }
-
-    if (payload.kind === "recipe") {
-      setActiveScaledRecipeId(payload.id);
-      setScalerDropMessage("");
-    } else {
-      const resolution = resolveRecipeForPrepItem(payload.id);
-
-      if (resolution?.recipe) {
-        setActiveScaledRecipeId(resolution.recipe.id);
-        setScalerDropMessage(`Loaded ${resolution.recipe.name} from prep item ${resolution.prepItem.name}.`);
-      } else if (resolution?.prepItem) {
-        setScalerDropMessage(`No linked recipe found for prep item ${resolution.prepItem.name}.`);
-      }
-    }
-
-    resetRecipeDragState();
   };
 
   const handleRecipeDropOnCard = (targetId: string, event: DragEvent<HTMLDivElement>) => {
@@ -656,9 +690,10 @@ function App() {
 
     if (resolution?.recipe) {
       promoteRecipeToLibraryFront(resolution.recipe.id);
+      setActiveRecipeId(resolution.recipe.id);
       setLibraryDropMessage(`Loaded ${resolution.recipe.name} into the recipe library from prep item ${resolution.prepItem.name}.`);
     } else if (resolution?.prepItem) {
-      setLibraryDropMessage(`No linked recipe found for prep item ${resolution.prepItem.name}.`);
+      setLibraryDropMessage(`No recipe is available to load for prep item ${resolution.prepItem.name}.`);
     }
 
     resetRecipeDragState();
@@ -1047,6 +1082,14 @@ function App() {
                       >
                         Admin Panel
                       </button>
+                      <button
+                        type="button"
+                        className="admin-trigger-btn"
+                        onClick={() => setShowRecipePanel(true)}
+                        disabled={!selectedDashboardId}
+                      >
+                        Manage Recipes
+                      </button>
                     </>
                   )}
                   <button
@@ -1184,133 +1227,70 @@ function App() {
                           }}
                           onDrop={(event) => handlePrepDropOnCard(item.id, event)}
                         >
-                          <div className="prep-drag-toolbar">
-                            <span className="prep-drag-hint">
-                              {linkedRecipe ? `Drag to reorder or drop into scaler/library for ${linkedRecipe.name}` : "Drag to reorder or drop into scaler/library"}
-                            </span>
-                            {linkedRecipe && (
-                              <button
-                                type="button"
-                                className="prep-load-button"
-                                onClick={() => {
-                                  handleLoadPrepIntoLibrary(item.id);
-                                }}
-                              >
-                                Load to library
-                              </button>
-                            )}
-                          </div>
                           <PrepItem item={item} canEdit={canOperate} />
                         </div>
                       );
                     })}
               </section>
 
-              <section className="recipes-panel scroll-reveal" aria-label="Recipe scaling">
+              <section className="recipes-panel scroll-reveal" aria-label="Recipe scaler">
                 <div className="section-heading">
                   <div>
-                    <h2 className="section-title">Recipe Scaling</h2>
+                    <h2 className="section-title">Recipe Scaler</h2>
                     <p className="section-copy">
-                      Drag a recipe into the scaler, then reorder the remaining cards however you like.
+                      Pick a recipe from the list, set a target yield, and view scaled ingredient quantities.
                     </p>
                   </div>
-                </div>
-
-                <div
-                  className={`recipe-scaler-zone${isScalerDragOver ? " is-drag-over" : ""}`}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    if (draggedRecipeId || draggedPrepId) {
-                      setIsScalerDragOver(true);
-                    }
-                  }}
-                  onDragLeave={() => setIsScalerDragOver(false)}
-                  onDrop={handleRecipeDropOnScaler}
-                >
-                  <div className="recipe-scaler-copy">
-                    <p className="recipe-scaler-eyebrow">Scaler Drop Zone</p>
-                    <h3 className="recipe-scaler-title">
-                      {activeScaledRecipe ? activeScaledRecipe.name : "Drop a recipe card here"}
-                    </h3>
-                    <p className="recipe-scaler-text">
-                      {activeScaledRecipe
-                        ? "This recipe is loaded into the scaler. Drop another recipe or a linked prep card here to swap it instantly."
-                        : "Drag a recipe card or a prep card with a linked recipe into this area to load it into the scaler."}
-                    </p>
-                    {scalerDropMessage && <p className="recipe-scaler-status">{scalerDropMessage}</p>}
-                  </div>
-
-                  {activeScaledRecipe && (
-                    <div className="recipe-scaler-card">
-                      <RecipeCard recipe={activeScaledRecipe} />
-                    </div>
-                  )}
                 </div>
 
                 <div className="recipe-library-heading">
-                  <h3 className="recipe-library-title">Recipe Library</h3>
-                  <p className="recipe-library-copy">Drag recipe cards to reorder. Drop prep cards here to load linked recipes into the library.</p>
+                  <p className="recipe-library-copy">Drag recipe cards to reorder. Drop any prep card here to load the best matching recipe into the scaler.</p>
                   {libraryDropMessage && <p className="recipe-library-status">{libraryDropMessage}</p>}
                 </div>
 
-                <div
-                  className={`recipe-grid-layout${isLibraryDragOver ? " is-prep-drop-over" : ""}`}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    if (draggedPrepId) {
-                      setIsLibraryDragOver(true);
-                    }
-                  }}
-                  onDragLeave={() => setIsLibraryDragOver(false)}
-                  onDrop={handlePrepDropOnLibrary}
-                >
-                  {recipesLoading
-                    ? Array.from({ length: 3 }, (_, i) => (
-                        <div key={i} className="skeleton-card scroll-reveal">
-                          <div className="skeleton-row">
-                            <div style={{ flex: 1 }}>
-                              <div className="skeleton skeleton-line-sm" style={{ width: "80px", marginBottom: "8px" }} />
-                              <div className="skeleton skeleton-line-lg" style={{ width: "70%" }} />
-                            </div>
-                          </div>
-                          <div className="skeleton skeleton-line-sm" style={{ width: "100%" }} />
-                          <div className="skeleton skeleton-line-sm" style={{ width: "88%" }} />
-                          <div className="skeleton skeleton-line-sm" style={{ width: "74%" }} />
-                        </div>
+                <div className="recipe-workspace">
+                  <div
+                    className={`recipe-list-pane${isLibraryDragOver ? " is-prep-drop-over" : ""}`}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      if (draggedPrepId) {
+                        setIsLibraryDragOver(true);
+                      }
+                    }}
+                    onDragLeave={() => setIsLibraryDragOver(false)}
+                    onDrop={handlePrepDropOnLibrary}
+                  >
+                    {recipesLoading ? (
+                      Array.from({ length: 6 }, (_, i) => (
+                        <div key={i} className="recipe-list-skeleton" />
                       ))
-                    : orderedRecipes.map((recipe) => (
-                        <div
-                          key={recipe.id}
-                          className={`scroll-reveal recipe-draggable-shell${recipe.id === activeScaledRecipeId ? " is-active" : ""}${dragOverRecipeId === recipe.id ? " is-drop-target" : ""}`}
-                          draggable
-                          onDragStart={(event) => handleRecipeDragStart(recipe.id, event)}
-                          onDragEnd={resetRecipeDragState}
-                          onDragOver={(event) => {
-                            event.preventDefault();
-                            if (draggedRecipeId && draggedRecipeId !== recipe.id) {
-                              setDragOverRecipeId(recipe.id);
-                            }
-                          }}
-                          onDragLeave={() => {
-                            if (dragOverRecipeId === recipe.id) {
-                              setDragOverRecipeId(null);
-                            }
-                          }}
-                          onDrop={(event) => handleRecipeDropOnCard(recipe.id, event)}
-                        >
-                          <div className="recipe-drag-toolbar">
-                            <span className="recipe-drag-hint">Drag to reorder or drop into scaler</span>
-                            <button
-                              type="button"
-                              className="recipe-load-button"
-                              onClick={() => setActiveScaledRecipeId(recipe.id)}
-                            >
-                              Load into scaler
-                            </button>
-                          </div>
-                          <RecipeCard recipe={recipe} />
-                        </div>
-                      ))}
+                    ) : (
+                      <RecipeListView
+                        recipes={orderedRecipes}
+                        activeRecipeId={activeRecipe?.id ?? null}
+                        dragOverRecipeId={dragOverRecipeId}
+                        onSelectRecipe={setActiveRecipeId}
+                        onRecipeDragStart={handleRecipeDragStart}
+                        onRecipeDragEnd={resetRecipeDragState}
+                        onRecipeDragOver={(recipeId, event) => {
+                          event.preventDefault();
+                          if (draggedRecipeId && draggedRecipeId !== recipeId) {
+                            setDragOverRecipeId(recipeId);
+                          }
+                        }}
+                        onRecipeDragLeave={(recipeId) => {
+                          if (dragOverRecipeId === recipeId) {
+                            setDragOverRecipeId(null);
+                          }
+                        }}
+                        onRecipeDrop={handleRecipeDropOnCard}
+                      />
+                    )}
+                  </div>
+
+                  <div className="recipe-detail-pane">
+                    <RecipeDetailView recipe={activeRecipe} />
+                  </div>
                 </div>
               </section>
             </>
@@ -1339,7 +1319,30 @@ function App() {
           adminEmail={user.email ?? user.uid}
           items={prepItems}
           onClose={() => setShowAdminPanel(false)}
-          onItemsChanged={fetchItems}
+          onItemsChanged={handlePrepItemsChanged}
+        />
+      )}
+
+      {showRecipePanel && user && isAdmin && selectedDashboardId && (
+        <AdminRecipePanel
+          recipes={recipes}
+          onClose={() => setShowRecipePanel(false)}
+          onRecipesChanged={async () => {
+            setRecipesLoading(true);
+            try {
+              const res = await fetch(`${getApiBaseUrl()}/api/recipes`, {
+                headers: { ...getSessionHeaders() },
+              });
+              if (res.ok) {
+                const recipeItems = (await res.json()) as Recipe[];
+                setRecipes(recipeItems);
+              }
+            } catch (error) {
+              console.error("Failed to refresh recipes:", error);
+            } finally {
+              setRecipesLoading(false);
+            }
+          }}
         />
       )}
 
@@ -1434,18 +1437,18 @@ function App() {
 
               <div className="guide-divider" />
 
-              {/* Recipe scaling */}
+              {/* Recipe scaler */}
               <section className="guide-section">
-                <h3 className="guide-section-title">Recipe Scaling</h3>
+                <h3 className="guide-section-title">Recipe Scaler</h3>
                 <ol className="guide-steps">
                   <li className="guide-step">
-                    <span>Scroll down to the <strong>Recipe Scaling</strong> panel to see all recipes assigned to the dashboard.</span>
+                    <span>Open the <strong>Recipe Scaler</strong> panel and pick a recipe from the list view.</span>
                   </li>
                   <li className="guide-step">
-                    <span>Click a <strong>scale button</strong> (0.5×, 1×, 2×, 3×) on any recipe card to instantly recalculate all ingredient quantities for that batch size.</span>
+                    <span>Enter the target yield amount in the detail view to recalculate ingredient quantities.</span>
                   </li>
                   <li className="guide-step">
-                    <span>Admins can manage recipes from the <em>Admin Panel</em>.</span>
+                    <span>Use drag and drop to reorder recipes, and drop any prep card to load a matching recipe automatically.</span>
                   </li>
                 </ol>
               </section>

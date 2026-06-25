@@ -5,6 +5,7 @@ import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 type Props = {
   isGuestMode?: boolean;
   recipes: Recipe[];
+  onGuestRecipeUpdate?: (recipeId: string, updates: Pick<Recipe, "guideUrl" | "videoSearchUrl">) => void;
   onClose: () => void;
   onRecipesChanged: () => Promise<void>;
 };
@@ -15,7 +16,13 @@ type DraftRecipe = {
   videoSearchUrl: string;
 };
 
-function AdminRecipePanel({ isGuestMode = false, recipes, onClose, onRecipesChanged }: Props) {
+function AdminRecipePanel({
+  isGuestMode = false,
+  recipes,
+  onGuestRecipeUpdate,
+  onClose,
+  onRecipesChanged,
+}: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DraftRecipe>({
     name: "",
@@ -56,7 +63,12 @@ function AdminRecipePanel({ isGuestMode = false, recipes, onClose, onRecipesChan
 
     if (isGuestMode) {
       setError("");
-      setMessage("Guest mode: recipe link changes are not saved. Sign in to persist changes.");
+      onGuestRecipeUpdate?.(editingId, {
+        guideUrl: editDraft.guideUrl.trim() || undefined,
+        videoSearchUrl: editDraft.videoSearchUrl.trim() || undefined,
+      });
+      setEditingId(null);
+      setMessage("Recipe links updated in guest mode. Changes are local and not saved.");
       return;
     }
 

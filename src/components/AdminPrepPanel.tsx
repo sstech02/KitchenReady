@@ -3,6 +3,7 @@ import type { PrepItem } from "../models/PrepItem";
 import { PREP_STATUSES } from "../models/PrepStatus";
 import { UNITS } from "../models/Unit";
 import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
+import { usePrepStore } from "../store/usePrepStore";
 
 type Props = {
   adminEmail: string;
@@ -52,6 +53,9 @@ const toPayload = (draft: DraftItem): Omit<PrepItem, "id"> => ({
 });
 
 function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onItemsChanged }: Props) {
+  const addLocalItem = usePrepStore((state) => state.addItem);
+  const updateLocalItem = usePrepStore((state) => state.updateItemLocal);
+  const removeLocalItem = usePrepStore((state) => state.removeItemLocal);
   const [creating, setCreating] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -95,17 +99,24 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
     setError("");
     setMessage("");
 
-    if (isGuestMode) {
-      setMessage("Guest mode: prep item changes are not saved. Sign in to persist changes.");
-      return;
-    }
-
     if (!newItem.name.trim()) {
       setError("Name is required.");
       return;
     }
 
     const payload = toPayload(newItem);
+
+    if (isGuestMode) {
+      const localItem: PrepItem = {
+        id: `guest-${crypto.randomUUID()}`,
+        ...payload,
+      };
+      addLocalItem(localItem);
+      setNewItem(emptyDraft);
+      setMessage("Prep item created in guest mode. Changes are local and not saved.");
+      return;
+    }
+
     setCreating(true);
 
     try {
@@ -137,17 +148,23 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
     setError("");
     setMessage("");
 
-    if (isGuestMode) {
-      setMessage("Guest mode: prep item changes are not saved. Sign in to persist changes.");
-      return;
-    }
-
     if (!editingId || editingId !== id) {
       return;
     }
 
     if (!editDraft.name.trim()) {
       setError("Name is required.");
+      return;
+    }
+
+    if (isGuestMode) {
+      const updatedItem: PrepItem = {
+        id,
+        ...toPayload(editDraft),
+      };
+      updateLocalItem(id, updatedItem);
+      setEditingId(null);
+      setMessage("Prep item updated in guest mode. Changes are local and not saved.");
       return;
     }
 
@@ -183,13 +200,17 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
     setError("");
     setMessage("");
 
-    if (isGuestMode) {
-      setMessage("Guest mode: prep item changes are not saved. Sign in to persist changes.");
+    const confirmed = window.confirm(`Delete prep item '${name}'?`);
+    if (!confirmed) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete prep item '${name}'?`);
-    if (!confirmed) {
+    if (isGuestMode) {
+      removeLocalItem(id);
+      if (editingId === id) {
+        cancelEdit();
+      }
+      setMessage("Prep item deleted in guest mode. Changes are local and not saved.");
       return;
     }
 

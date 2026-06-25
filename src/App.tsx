@@ -558,11 +558,6 @@ function App() {
       return;
     }
 
-    if (isGuestSession) {
-      setDashboardError("Guest mode does not save dashboard changes. Sign in to create dashboards.");
-      return;
-    }
-
     const trimmedBusinessName = businessName.trim();
     const trimmedAdminEmail = adminEmail.trim().toLowerCase();
 
@@ -573,6 +568,23 @@ function App() {
 
     if (!trimmedAdminEmail) {
       setDashboardError("At least one admin email is required.");
+      return;
+    }
+
+    if (isGuestSession) {
+      const now = new Date().toISOString();
+      const guestDashboard: DashboardSummary = {
+        id: `guest-dashboard-${crypto.randomUUID()}`,
+        businessName: trimmedBusinessName,
+        createdAt: now,
+        updatedAt: now,
+        role: "admin",
+      };
+
+      setDashboards((current) => [...current, guestDashboard]);
+      setSelectedDashboard(guestDashboard.id);
+      setDashboardMessage(`Dashboard created in guest mode for ${trimmedBusinessName}. Changes are not saved.`);
+      setBusinessName("");
       return;
     }
 
@@ -804,7 +816,13 @@ function App() {
     }
 
     if (isGuestSession) {
-      setDeleteError("Guest mode does not save dashboard changes. Sign in to delete dashboards.");
+      const remainingDashboards = dashboards.filter((dashboard) => dashboard.id !== selectedDashboardId);
+      setDashboards(remainingDashboards);
+      setSelectedDashboard(remainingDashboards[0]?.id ?? "");
+      setDeleteConfirm(false);
+      setDeleteConfirmName("");
+      setDeleteError("");
+      setDashboardMessage("Dashboard deleted in guest mode. Changes are not saved.");
       return;
     }
 
@@ -1434,6 +1452,15 @@ function App() {
         <AdminRecipePanel
           isGuestMode={isGuestSession}
           recipes={recipes}
+          onGuestRecipeUpdate={(recipeId, updates) => {
+            setRecipes((current) =>
+              current.map((recipe) =>
+                recipe.id === recipeId
+                  ? { ...recipe, guideUrl: updates.guideUrl, videoSearchUrl: updates.videoSearchUrl }
+                  : recipe,
+              ),
+            );
+          }}
           onClose={() => setShowRecipePanel(false)}
           onRecipesChanged={async () => {
             setRecipesLoading(true);

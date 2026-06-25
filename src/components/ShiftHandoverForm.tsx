@@ -72,12 +72,6 @@ function ShiftHandoverForm({ currentUserEmail, isGuestMode = false, prepItems, o
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-
-    if (isGuestMode) {
-      setError("Guest mode: handovers are not saved. Sign in to submit handovers.");
-      return;
-    }
-
     setSubmitting(true);
 
     const now = new Date().toISOString();
@@ -98,6 +92,13 @@ function ShiftHandoverForm({ currentUserEmail, isGuestMode = false, prepItems, o
       createdAt: now,
       updatedAt: now,
     };
+
+    if (isGuestMode) {
+      onSubmitted?.({ id: `guest-handover-${crypto.randomUUID()}`, ...handover });
+      setSubmitting(false);
+      onClose();
+      return;
+    }
 
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/handovers`, {

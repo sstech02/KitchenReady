@@ -15,6 +15,8 @@ type PrepStore = {
   setTargetQty: (id: string, targetQty: number) => Promise<void>;
   setPriority: (id: string, priority: PrepItem["priority"]) => Promise<void>;
   addItem: (item: PrepItem) => void;
+  updateItemLocal: (id: string, item: PrepItem) => void;
+  removeItemLocal: (id: string) => void;
 };
 
 const persistUpdatedItem = async (
@@ -161,5 +163,15 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
   addItem: (item) =>
     set((state) => ({
       items: [...state.items, item],
+    })),
+
+  updateItemLocal: (id, item) =>
+    set((state) => ({
+      items: state.items.map((existing) => (existing.id === id ? item : existing)),
+    })),
+
+  removeItemLocal: (id) =>
+    set((state) => ({
+      items: state.items.filter((item) => item.id !== id),
     })),
 }));

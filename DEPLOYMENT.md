@@ -41,6 +41,11 @@ Access the app at `http://localhost:5174` (or the Vite-assigned port)
 
 1. Create a Firebase project: https://console.firebase.google.com
 2. Enable Email/Password and Google OAuth authentication
+3. Add your app domains to Firebase Authorized domains:
+	- Go to Authentication > Settings > Authorized domains
+	- Add localhost (for local testing)
+	- Add kitchen-ready.vercel.app (or your exact deployed frontend domain)
+	- Add any custom production domain you connect later
 3. Copy your Firebase config
 4. Create `.env.local` file in the KitchenReady folder:
 
@@ -208,7 +213,10 @@ npm test
 ### Firebase errors
 - Check `.env.local` has all required variables
 - Verify Firebase project has authentication enabled
-- Check CORS settings in Firebase Console
+- Add your frontend domain to Firebase Authorized domains:
+	- Firebase Console > Authentication > Settings > Authorized domains
+	- Include `kitchen-ready.vercel.app` for this deployment
+	- Unauthorized domain errors (`auth/unauthorized-domain`) come from this list
 
 ### API connection errors
 - Ensure both dev servers running: `npm run dev`

@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import type { PrepItem } from "../models/PrepItem";
-import { getApiBaseUrl, getSessionHeaders, getStoredDashboardId } from "../services/sessionHeaders";
+import { getApiBaseUrl, getSessionHeaders, getStoredDashboardId, getStoredUserEmail } from "../services/sessionHeaders";
+
+const guestEmail = "guest@kitchenready.app";
+const isGuestMode = () => getStoredUserEmail() === guestEmail;
 
 type PrepStore = {
   items: PrepItem[];
@@ -24,6 +27,10 @@ const persistUpdatedItem = async (
   set((state) => ({
     items: state.items.map((item) => (item.id === id ? updatedItem : item)),
   }));
+
+  if (isGuestMode()) {
+    return;
+  }
 
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/prep-items/${id}`, {

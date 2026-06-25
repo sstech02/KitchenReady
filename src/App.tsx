@@ -5,6 +5,7 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signInWithRedirect,
   signInWithPopup,
   signOut,
   type User,
@@ -76,10 +77,43 @@ const tokenizeLookupValue = (value: string) =>
     .split(/[^a-z0-9]+/)
     .filter((token) => token.length > 1);
 
+const getFirebaseErrorCode = (error: unknown): string | null => {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
+};
+
+const formatAuthError = (error: unknown): string => {
+  const code = getFirebaseErrorCode(error);
+
+  if (code === "auth/unauthorized-domain") {
+    const currentDomain = window.location.hostname;
+    return `Google sign-in is blocked for this domain (${currentDomain}). Add it in Firebase Console > Authentication > Settings > Authorized domains, then retry.`;
+  }
+
+  if (code === "auth/popup-closed-by-user") {
+    return "Google sign-in popup was closed before completing login.";
+  }
+
+  if (code === "auth/popup-blocked") {
+    return "Popup was blocked by the browser. Retrying with redirect sign-in...";
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return "Authentication failed. Please try again.";
+};
+
 function App() {
   const prepItems = usePrepStore((state) => state.items);
   const fetchItems = usePrepStore((state) => state.fetchItems);
   const [user, setUser] = useState<User | null>(null);
+  const [guestSessionEmail, setGuestSessionEmail] = useState<string | null>(null);
   const [modalView, setModalView] = useState<"login" | "create" | "reset">("login");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -130,12 +164,17 @@ function App() {
   const firebaseMissingMessage = import.meta.env.PROD
     ? "Firebase is not configured. Set VITE_FIREBASE_* variables in Vercel and redeploy."
     : "Firebase is not configured. Add the VITE_FIREBASE_* values to your .env.local file.";
+  const guestEmail = "guest@kitchenready.app";
+  const currentUserEmail = user?.email ?? guestSessionEmail;
+  const currentUserIdentity = currentUserEmail ?? user?.uid ?? null;
+  const isGuestSession = currentUserEmail === guestEmail;
+  const hasSession = Boolean(user || guestSessionEmail);
 
   const selectedDashboard = dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const currentRole: Role | null = selectedDashboard?.role ?? null;
-  const canOperate = hasRoleAtLeast(currentRole, "operator");
-  const canLead = hasRoleAtLeast(currentRole, "lead");
-  const isAdmin = hasRoleAtLeast(currentRole, "admin");
+  const canOperate = isGuestSession || hasRoleAtLeast(currentRole, "operator");
+  const canLead = isGuestSession || hasRoleAtLeast(currentRole, "lead");
+  const isAdmin = isGuestSession || hasRoleAtLeast(currentRole, "admin");
   const isDeleteNameMatch = deleteConfirmName.trim() === (selectedDashboard?.businessName ?? "");
 
   const orderedRecipes = useMemo(() => {
@@ -258,6 +297,9 @@ function App() {
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        setGuestSessionEmail(null);
+      }
       setAuthError("");
       setDashboardError("");
       setDashboardMessage("");
@@ -265,7 +307,7 @@ function App() {
       if (currentUser?.email) {
         setStoredUserEmail(currentUser.email);
         setAdminEmail(currentUser.email);
-      } else {
+      } else if (!guestSessionEmail) {
         setStoredUserEmail(null);
         setStoredDashboardId(null);
         setSelectedDashboardIdState("");
@@ -282,10 +324,10 @@ function App() {
     });
 
     return unsubscribe;
-  }, [fetchDashboards]);
+  }, [fetchDashboards, guestSessionEmail]);
 
   useEffect(() => {
-    if (!user) {
+    if (!currentUserEmail) {
       return;
     }
 
@@ -305,7 +347,7 @@ function App() {
         console.error("Failed loading recipes:", err);
       })
       .finally(() => setRecipesLoading(false));
-  }, [fetchItems, fetchRecipes, user]);
+  }, [currentUserEmail, fetchItems, fetchRecipes]);
 
   useEffect(() => {
     const prepIds = prepItems.map((item) => item.id);
@@ -379,9 +421,23 @@ function App() {
     setAuthError("");
 
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      await signInWithPopup(auth, provider);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Google sign-in failed.");
+      const code = getFirebaseErrorCode(error);
+      if (code === "auth/popup-blocked") {
+        try {
+          setAuthMessage("Popup blocked. Continuing with full-page Google sign-in...");
+          await signInWithRedirect(auth, new GoogleAuthProvider());
+          return;
+        } catch (redirectError) {
+          setAuthError(formatAuthError(redirectError));
+          return;
+        }
+      }
+
+      setAuthError(formatAuthError(error));
     } finally {
       setAuthLoading(false);
     }
@@ -457,24 +513,53 @@ function App() {
     }
   };
 
-  const handleSignOut = async () => {
-    if (!auth) {
-      return;
-    }
+  const handleGuestSignIn = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    setAuthMessage("");
 
+    try {
+      setGuestSessionEmail(guestEmail);
+      setStoredUserEmail(guestEmail);
+      setAdminEmail(guestEmail);
+      await fetchDashboards(guestEmail);
+      setAuthMessage("Signed in as guest.");
+    } catch (error) {
+      setGuestSessionEmail(null);
+      setStoredUserEmail(null);
+      setAuthError(error instanceof Error ? error.message : "Guest sign-in failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
     setShowAdminPanel(false);
     setShowMembersPanel(false);
     setShowHistory(false);
     setShowHandover(false);
+    setGuestSessionEmail(null);
+    setUser(null);
+    setDashboards([]);
+    setRecipes([]);
+    setSelectedDashboardIdState("");
     setStoredDashboardId(null);
     setStoredUserEmail(null);
-    await signOut(auth);
+
+    if (auth && user) {
+      await signOut(auth);
+    }
   };
 
   const handleCreateDashboard = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!user?.email) {
+    if (!currentUserEmail) {
+      return;
+    }
+
+    if (isGuestSession) {
+      setDashboardError("Guest mode does not save dashboard changes. Sign in to create dashboards.");
       return;
     }
 
@@ -500,7 +585,7 @@ function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-email": user.email,
+          "x-user-email": currentUserEmail,
         },
         body: JSON.stringify({
           businessName: trimmedBusinessName,
@@ -515,7 +600,7 @@ function App() {
       }
 
       const created = (await res.json()) as DashboardSummary;
-      await fetchDashboards(user.email, created.id);
+  await fetchDashboards(currentUserEmail, created.id);
       setDashboardMessage(`Dashboard created for ${trimmedBusinessName}.`);
       setBusinessName("");
     } catch (error) {
@@ -531,11 +616,11 @@ function App() {
     totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
 
   const handleMembershipChanged = async () => {
-    if (!user?.email) {
+    if (!currentUserEmail) {
       return;
     }
 
-    await fetchDashboards(user.email, selectedDashboardId);
+    await fetchDashboards(currentUserEmail, selectedDashboardId);
   };
 
   const resetRecipeDragState = () => {
@@ -714,7 +799,12 @@ function App() {
   };
 
   const handleDeleteDashboard = async () => {
-    if (!user?.email || !selectedDashboardId) {
+    if (!currentUserEmail || !selectedDashboardId) {
+      return;
+    }
+
+    if (isGuestSession) {
+      setDeleteError("Guest mode does not save dashboard changes. Sign in to delete dashboards.");
       return;
     }
 
@@ -734,7 +824,7 @@ function App() {
       }
 
       setDeleteConfirm(false);
-      await fetchDashboards(user.email);
+      await fetchDashboards(currentUserEmail);
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : "Failed to delete dashboard.");
     } finally {
@@ -744,7 +834,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      {!user && (
+      {!hasSession && (
         <section className="login-modal" aria-label="Login modal">
           <div className="login-card">
             <div className="login-card-toolbar">
@@ -781,6 +871,15 @@ function App() {
                   disabled={authLoading || !auth}
                 >
                   Continue with Google
+                </button>
+
+                <button
+                  type="button"
+                  className="login-submit"
+                  onClick={handleGuestSignIn}
+                  disabled={authLoading}
+                >
+                  Continue as Guest
                 </button>
 
                 <div className="login-divider" aria-hidden="true">
@@ -921,7 +1020,7 @@ function App() {
         </section>
       )}
 
-      {user && (
+      {hasSession && (
         <section className="dashboard" style={{ zoom: `${zoom}%` }} aria-label="Prep list dashboard">
           <header className="dashboard-header">
             <div className="dashboard-topbar">
@@ -1062,7 +1161,7 @@ function App() {
                     ? Guide
                   </button>
                 </div>
-                <span className="dashboard-user">{user.email || "Signed in"}</span>
+                <span className="dashboard-user">{currentUserIdentity || "Signed in"}</span>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
                   {isAdmin && (
                     <>
@@ -1145,6 +1244,12 @@ function App() {
                 You have {currentRole ?? "viewer"} access in this dashboard. Higher roles unlock handover and admin actions.
               </p>
             )}
+
+            {isGuestSession && (
+              <p className="dashboard-access-note" role="note">
+                Guest mode is running with admin access for demo use. Changes are local and will not be saved until you sign in.
+              </p>
+            )}
           </header>
 
           <section className="dashboard-setup" aria-label="Dashboard setup">
@@ -1176,7 +1281,7 @@ function App() {
                 />
               </label>
 
-              <button type="submit" className="dashboard-setup-submit" disabled={dashboardLoading || !user.email}>
+              <button type="submit" className="dashboard-setup-submit" disabled={dashboardLoading || !currentUserEmail}>
                 {dashboardLoading ? "Creating..." : "Create Dashboard"}
               </button>
             </form>
@@ -1302,9 +1407,10 @@ function App() {
         </section>
       )}
 
-      {showHandover && user && canLead && selectedDashboardId && (
+      {showHandover && currentUserIdentity && canLead && selectedDashboardId && (
         <ShiftHandoverForm
-          currentUser={user}
+          currentUserEmail={currentUserIdentity}
+          isGuestMode={isGuestSession}
           prepItems={prepItems}
           onClose={() => setShowHandover(false)}
         />
@@ -1314,17 +1420,19 @@ function App() {
         <HandoverHistory onClose={() => setShowHistory(false)} />
       )}
 
-      {showAdminPanel && user && isAdmin && selectedDashboardId && (
+      {showAdminPanel && currentUserIdentity && isAdmin && selectedDashboardId && (
         <AdminPrepPanel
-          adminEmail={user.email ?? user.uid}
+          adminEmail={currentUserIdentity}
+          isGuestMode={isGuestSession}
           items={prepItems}
           onClose={() => setShowAdminPanel(false)}
           onItemsChanged={handlePrepItemsChanged}
         />
       )}
 
-      {showRecipePanel && user && isAdmin && selectedDashboardId && (
+      {showRecipePanel && currentUserIdentity && isAdmin && selectedDashboardId && (
         <AdminRecipePanel
+          isGuestMode={isGuestSession}
           recipes={recipes}
           onClose={() => setShowRecipePanel(false)}
           onRecipesChanged={async () => {
@@ -1346,10 +1454,11 @@ function App() {
         />
       )}
 
-      {showMembersPanel && user && selectedDashboardId && (
+      {showMembersPanel && currentUserIdentity && selectedDashboardId && (
         <DashboardMembersPanel
           dashboardId={selectedDashboardId}
-          currentUserEmail={user.email ?? user.uid}
+          currentUserEmail={currentUserIdentity}
+          isGuestMode={isGuestSession}
           onClose={() => setShowMembersPanel(false)}
           onMembershipChanged={handleMembershipChanged}
         />

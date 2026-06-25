@@ -38,5 +38,13 @@
     "role": "admin",
     "createdAt": "2026-06-18T20:00:48.701Z",
     "updatedAt": "2026-06-18T20:02:22.230Z"
+  },
+  {
+    "id": "13d4cbc6-08a2-4035-b60a-a008986b4579",
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "userEmail": "guest@kitchenready.app",
+    "role": "operator",
+    "createdAt": "2026-06-25T18:45:25.178Z",
+    "updatedAt": "2026-06-25T18:45:25.178Z"
   }
 ]

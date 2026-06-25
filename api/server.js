@@ -529,7 +529,34 @@ const adminCountForDashboard = (dashboardId) =>
 
 await loadDomainStores();
 
-app.use(cors());
+// CORS configuration for development and production
+const allowedOrigins = [
+  "http://localhost:5174",
+  "http://localhost:5173",
+  "http://127.0.0.1:5174",
+  "http://127.0.0.1:5173",
+];
+
+// Add production domain from environment variable if available
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {

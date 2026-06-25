@@ -3,6 +3,7 @@ import type { Recipe } from "../models/Recipe";
 import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 
 type Props = {
+  isGuestMode?: boolean;
   recipes: Recipe[];
   onClose: () => void;
   onRecipesChanged: () => Promise<void>;
@@ -14,7 +15,7 @@ type DraftRecipe = {
   videoSearchUrl: string;
 };
 
-function AdminRecipePanel({ recipes, onClose, onRecipesChanged }: Props) {
+function AdminRecipePanel({ isGuestMode = false, recipes, onClose, onRecipesChanged }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DraftRecipe>({
     name: "",
@@ -50,6 +51,12 @@ function AdminRecipePanel({ recipes, onClose, onRecipesChanged }: Props) {
     event.preventDefault();
 
     if (!editingId) {
+      return;
+    }
+
+    if (isGuestMode) {
+      setError("");
+      setMessage("Guest mode: recipe link changes are not saved. Sign in to persist changes.");
       return;
     }
 

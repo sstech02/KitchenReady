@@ -6,6 +6,7 @@ import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 type Props = {
   dashboardId: string;
   currentUserEmail: string;
+  isGuestMode?: boolean;
   onClose: () => void;
   onMembershipChanged?: () => Promise<void> | void;
 };
@@ -47,6 +48,7 @@ const toErrorMessage = (fallback: string, body: unknown): string => {
 function DashboardMembersPanel({
   dashboardId,
   currentUserEmail,
+  isGuestMode = false,
   onClose,
   onMembershipChanged,
 }: Props) {
@@ -104,6 +106,12 @@ function DashboardMembersPanel({
   const handleAddMember = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (isGuestMode) {
+      setError("");
+      setMessage("Guest mode: team changes are not saved. Sign in to persist changes.");
+      return;
+    }
+
     const normalizedEmail = newUserEmail.trim().toLowerCase();
     if (!normalizedEmail) {
       setError("User email is required.");
@@ -139,6 +147,12 @@ function DashboardMembersPanel({
   };
 
   const handleRoleChange = async (memberId: string, role: Role) => {
+    if (isGuestMode) {
+      setError("");
+      setMessage("Guest mode: team changes are not saved. Sign in to persist changes.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -166,6 +180,12 @@ function DashboardMembersPanel({
   };
 
   const handleRemoveMember = async (member: DashboardMembership) => {
+    if (isGuestMode) {
+      setError("");
+      setMessage("Guest mode: team changes are not saved. Sign in to persist changes.");
+      return;
+    }
+
     const confirmed = window.confirm(`Remove ${member.userEmail} from this dashboard?`);
     if (!confirmed) {
       return;

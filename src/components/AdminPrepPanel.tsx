@@ -6,6 +6,7 @@ import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 
 type Props = {
   adminEmail: string;
+  isGuestMode?: boolean;
   items: PrepItem[];
   onClose: () => void;
   onItemsChanged: () => Promise<void>;
@@ -50,7 +51,7 @@ const toPayload = (draft: DraftItem): Omit<PrepItem, "id"> => ({
   notes: draft.notes.trim() || undefined,
 });
 
-function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
+function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onItemsChanged }: Props) {
   const [creating, setCreating] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -94,6 +95,11 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     setError("");
     setMessage("");
 
+    if (isGuestMode) {
+      setMessage("Guest mode: prep item changes are not saved. Sign in to persist changes.");
+      return;
+    }
+
     if (!newItem.name.trim()) {
       setError("Name is required.");
       return;
@@ -130,6 +136,11 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
   const handleSave = async (id: string) => {
     setError("");
     setMessage("");
+
+    if (isGuestMode) {
+      setMessage("Guest mode: prep item changes are not saved. Sign in to persist changes.");
+      return;
+    }
 
     if (!editingId || editingId !== id) {
       return;
@@ -171,6 +182,11 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
   const handleDelete = async (id: string, name: string) => {
     setError("");
     setMessage("");
+
+    if (isGuestMode) {
+      setMessage("Guest mode: prep item changes are not saved. Sign in to persist changes.");
+      return;
+    }
 
     const confirmed = window.confirm(`Delete prep item '${name}'?`);
     if (!confirmed) {

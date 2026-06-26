@@ -109,6 +109,10 @@ const formatAuthError = (error: unknown): string => {
   return "Authentication failed. Please try again.";
 };
 
+const ZOOM_MIN = 75;
+const ZOOM_MAX = 150;
+const ZOOM_STEP = 25;
+
 function App() {
   const prepItems = usePrepStore((state) => state.items);
   const fetchItems = usePrepStore((state) => state.fetchItems);
@@ -169,6 +173,10 @@ function App() {
   const currentUserIdentity = currentUserEmail ?? user?.uid ?? null;
   const isGuestSession = currentUserEmail === guestEmail;
   const hasSession = Boolean(user || guestSessionEmail);
+
+  const adjustZoom = useCallback((delta: number) => {
+    setZoom((prevZoom) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, prevZoom + delta)));
+  }, []);
 
   const selectedDashboard = dashboards.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
   const currentRole: Role | null = selectedDashboard?.role ?? null;
@@ -1159,17 +1167,25 @@ function App() {
                     {theme === "dark" ? "☀️" : "🌙"}
                   </button>
                   <div className="zoom-controls" aria-label="Zoom controls">
+                    <button
+                      type="button"
+                      className="zoom-adjust-button"
+                      onClick={() => adjustZoom(-ZOOM_STEP)}
+                      aria-label="Decrease zoom"
+                      disabled={zoom <= ZOOM_MIN}
+                    >
+                      -
+                    </button>
                     <span className="zoom-value">{zoom}%</span>
-                    <input
-                      type="range"
-                      className="zoom-slider"
-                      min={75}
-                      max={150}
-                      step={25}
-                      value={zoom}
-                      onChange={(e) => setZoom(Number(e.target.value))}
-                      aria-label="Zoom level"
-                    />
+                    <button
+                      type="button"
+                      className="zoom-adjust-button"
+                      onClick={() => adjustZoom(ZOOM_STEP)}
+                      aria-label="Increase zoom"
+                      disabled={zoom >= ZOOM_MAX}
+                    >
+                      +
+                    </button>
                   </div>
                   <button
                     type="button"

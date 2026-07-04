@@ -77,6 +77,48 @@ describe("PrepItem", () => {
     expect(mockSetStatus).toHaveBeenCalledWith("prep-1", "in_progress");
   });
 
+  test.each([
+  ["todo", "To do"],
+  ["in_progress", "In progress"],
+  ["done", "Done"],
+] as const)(
+  "renders status label correctly for %s",
+  (status, expectedLabel) => {
+    render(<PrepItem item={{ ...baseItem, status }} />);
+
+    expect(
+      screen.getByRole("button", {
+        name: `Status: ${expectedLabel}. Activate to advance status.`,
+      }),
+    ).toBeTruthy();
+
+    expect(
+      screen.getByLabelText(
+        `Prep item Tomato Sauce. Status ${expectedLabel}. Priority Medium.`,
+      ),
+    ).toBeTruthy();
+  },
+);
+
+test.each([
+  ["todo", "in_progress"],
+  ["in_progress", "done"],
+  ["done", "todo"],
+] as const)(
+  "cycles status from %s to %s when status pill is clicked",
+  (currentStatus, nextStatus) => {
+    render(<PrepItem item={{ ...baseItem, status: currentStatus }} />);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Status: .* Activate to advance status\./,
+      }),
+    );
+
+    expect(mockSetStatus).toHaveBeenCalledWith("prep-1", nextStatus);
+  },
+);
+
   test("supports keyboard status advance from card focus", () => {
     render(<PrepItem item={baseItem} />);
 

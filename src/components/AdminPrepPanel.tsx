@@ -3,7 +3,7 @@ import type { PrepItem } from "../models/PrepItem";
 import { PREP_STATUSES } from "../models/PrepStatus";
 import { UNITS } from "../models/Unit";
 import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
-import { usePrepStore } from "../store/usePrepStore";
+import { deletePrepItemFromFirestore, usePrepStore } from "../store/usePrepStore";
 
 type Props = {
   adminEmail: string;
@@ -228,6 +228,10 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
       if (!res.ok) {
         throw new Error(`Failed to delete item (${res.status}).`);
       }
+
+      await deletePrepItemFromFirestore(id).catch((firestoreError) => {
+        console.error("Failed to delete prep item from Firestore:", firestoreError);
+      });
 
       await onItemsChanged();
       if (editingId === id) {

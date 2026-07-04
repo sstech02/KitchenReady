@@ -1,5 +1,7 @@
 # KitchenReady
 
+[![CI](https://github.com/sstech02/KitchenReady/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YOUR-OWNER/YOUR-REPO/actions/workflows/ci.yml)
+
 A web application for restaurants and cooks to manage shift preparation, recipe scaling, and day-to-day kitchen operations.
 
 ## Features

@@ -116,6 +116,7 @@ const ZOOM_STEP = 25;
 function App() {
   const prepItems = usePrepStore((state) => state.items);
   const fetchItems = usePrepStore((state) => state.fetchItems);
+  const subscribeToPrepItems = usePrepStore((state) => state.subscribeToItems);
   const [user, setUser] = useState<User | null>(null);
   const [guestSessionEmail, setGuestSessionEmail] = useState<string | null>(null);
   const [modalView, setModalView] = useState<"login" | "create" | "reset">("login");
@@ -291,7 +292,7 @@ function App() {
           }
         });
       },
-      { threshold: 0.08 }
+      { threshold: 0.08 },
     );
     scrollObserverRef.current = observer;
     document.querySelectorAll(".scroll-reveal").forEach((el) => observer.observe(el));
@@ -336,15 +337,50 @@ function App() {
 
   useEffect(() => {
     if (!currentUserEmail) {
+      setPrepLoading(false);
+      return;
+    }
+
+    let prepLoadingSettled = false;
+    const settlePrepLoading = () => {
+      if (!prepLoadingSettled) {
+        prepLoadingSettled = true;
+        setPrepLoading(false);
+      }
+    };
+
+    if (!selectedDashboardId) {
+      setPrepLoading(true);
+      fetchItems()
+        .catch((err) => {
+          console.error("Failed loading prep items:", err);
+        })
+        .finally(settlePrepLoading);
       return;
     }
 
     setPrepLoading(true);
-    fetchItems()
-      .catch((err) => {
-        console.error("Failed loading prep items:", err);
-      })
-      .finally(() => setPrepLoading(false));
+    const unsubscribePrepItems = subscribeToPrepItems(selectedDashboardId, {
+      onInitialSnapshot: settlePrepLoading,
+      onError: (error) => {
+        console.error("Failed to subscribe to prep items:", error);
+        settlePrepLoading();
+      },
+    });
+
+    fetchItems().catch((err) => {
+      console.error("Failed loading prep items:", err);
+    }).finally(settlePrepLoading);
+
+    return () => {
+      unsubscribePrepItems();
+    };
+  }, [currentUserEmail, fetchItems, selectedDashboardId, subscribeToPrepItems]);
+
+  useEffect(() => {
+    if (!currentUserEmail) {
+      return;
+    }
 
     setRecipesLoading(true);
     fetchRecipes()
@@ -355,7 +391,7 @@ function App() {
         console.error("Failed loading recipes:", err);
       })
       .finally(() => setRecipesLoading(false));
-  }, [currentUserEmail, fetchItems, fetchRecipes]);
+  }, [currentUserEmail, fetchRecipes]);
 
   useEffect(() => {
     const prepIds = prepItems.map((item) => item.id);

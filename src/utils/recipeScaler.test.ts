@@ -29,6 +29,33 @@ describe("scaleRecipeForYield", () => {
     expect(scaled.ingredients[1].quantity).toBe(1);
   });
 
+  test("rounds half-up at boundary values", () => {
+    const recipe = buildRecipe();
+
+    const customRecipe: Recipe = {
+      ...recipe,
+      ingredients: [{ id: "i-x", name: "Yeast", quantity: 0.125, unit: "tsp" }],
+      yieldAmount: 1,
+    };
+
+    const scaled = scaleRecipeForYield(customRecipe, 1, { roundTo: 2 });
+
+    expect(scaled.ingredients[0].quantity).toBe(0.13);
+  });
+
+  test("keeps zero ingredient quantity at zero after scaling", () => {
+    const recipe = buildRecipe();
+
+    const customRecipe: Recipe = {
+      ...recipe,
+      ingredients: [{ id: "i-z", name: "Optional garnish", quantity: 0, unit: "tsp" }],
+    };
+
+    const scaled = scaleRecipeForYield(customRecipe, 8, { minQuantity: 0.1 });
+
+    expect(scaled.ingredients[0].quantity).toBe(0);
+  });
+
   test("scales ingredient quantities for smaller target yield", () => {
     const recipe = buildRecipe();
 

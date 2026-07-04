@@ -156,5 +156,17 @@
     "id": "5c2b74de-0f0d-4bac-b965-0aa98840a5da",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
     "recipeId": "prep-recipe-5c2b74de-0f0d-4bac-b965-0aa98840a5da"
+  },
+  {
+    "name": "Item",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "0cc0bad7-e963-4499-8295-aa2256fd89b5",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-0cc0bad7-e963-4499-8295-aa2256fd89b5"
   }
 ]

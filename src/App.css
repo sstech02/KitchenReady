@@ -2634,6 +2634,26 @@
   border-color: #991b1b;
 }
 
+.sync-refresh-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .sync-refresh-pill {
+  border-color: #30363d;
+  background: #161b22;
+  color: #c9d1d9;
+}
+
 /* ============================================================
    GUIDE PANEL
    ============================================================ */

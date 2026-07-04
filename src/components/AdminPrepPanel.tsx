@@ -134,9 +134,9 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
         throw new Error(`Failed to create item (${res.status}).`);
       }
 
-      const createdItem = (await res.json()) as PrepItem;
-      await syncPrepItemToFirestore(createdItem).catch((firestoreError) => {
-        console.error("Failed to sync created prep item to Firestore:", firestoreError);
+      const savedItem = (await res.json()) as PrepItem;
+      void syncPrepItemToFirestore(savedItem).catch((firestoreError) => {
+        console.error("Failed to sync new prep item to Firestore:", firestoreError);
       });
 
       await onItemsChanged();
@@ -192,7 +192,7 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
       }
 
       const savedItem = (await res.json()) as PrepItem;
-      await syncPrepItemToFirestore(savedItem).catch((firestoreError) => {
+      void syncPrepItemToFirestore(savedItem).catch((firestoreError) => {
         console.error("Failed to sync updated prep item to Firestore:", firestoreError);
       });
 

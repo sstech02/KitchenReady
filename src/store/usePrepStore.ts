@@ -112,9 +112,21 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
   },
 
   subscribeToItems: (dashboardId, callbacks) => {
-    if (!db || !dashboardId) {
+    if (!dashboardId) {
       set({ items: [] });
       callbacks?.onInitialSnapshot?.();
+      return () => undefined;
+    }
+
+    if (!db) {
+      void get()
+        .fetchItems()
+        .then(() => callbacks?.onInitialSnapshot?.())
+        .catch((error) => {
+          callbacks?.onError?.(error);
+          callbacks?.onInitialSnapshot?.();
+        });
+
       return () => undefined;
     }
 
@@ -129,20 +141,7 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
       (snapshot) => {
         const nextItems = snapshot.docs.map((snapshotDoc) => snapshotDoc.data() as PrepItem);
 
-        set((state) => {
-          if (nextItems.length === 0 && state.items.length > 0) {
-            return {};
-          }
-
-          const currentItemsById = new Map(state.items.map((item) => [item.id, item]));
-          const nextItemsById = new Map(nextItems.map((item) => [item.id, item]));
-          const mergedItems = [
-            ...state.items.filter((item) => !nextItemsById.has(item.id)),
-            ...nextItems.map((item) => ({ ...currentItemsById.get(item.id), ...item }) as PrepItem),
-          ];
-
-          return { items: mergedItems };
-        });
+        set({ items: nextItems });
 
         if (!initialSnapshotHandled) {
           initialSnapshotHandled = true;

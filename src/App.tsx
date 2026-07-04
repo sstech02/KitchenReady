@@ -115,8 +115,7 @@ const ZOOM_STEP = 25;
 
 function App() {
   const prepItems = usePrepStore((state) => state.items);
-  const fetchItems = usePrepStore((state) => state.fetchItems);
-  const subscribeToPrepItems = usePrepStore((state) => state.subscribeToItems);
+  const subscribeToItems = usePrepStore((state) => state.subscribeToItems);
   const [user, setUser] = useState<User | null>(null);
   const [guestSessionEmail, setGuestSessionEmail] = useState<string | null>(null);
   const [modalView, setModalView] = useState<"login" | "create" | "reset">("login");
@@ -254,12 +253,6 @@ function App() {
 
   const handlePrepItemsChanged = useCallback(async () => {
     try {
-      await fetchItems();
-    } catch (error) {
-      console.error("Failed to refresh prep items:", error);
-    }
-
-    try {
       setRecipesLoading(true);
       const recipeItems = await fetchRecipes();
       setRecipes(recipeItems);
@@ -268,7 +261,7 @@ function App() {
     } finally {
       setRecipesLoading(false);
     }
-  }, [fetchItems, fetchRecipes]);
+  }, [fetchRecipes]);
 
   // Persist & apply theme
   useEffect(() => {
@@ -292,7 +285,7 @@ function App() {
           }
         });
       },
-      { threshold: 0.08 },
+      { threshold: 0.08 }
     );
     scrollObserverRef.current = observer;
     document.querySelectorAll(".scroll-reveal").forEach((el) => observer.observe(el));
@@ -341,41 +334,16 @@ function App() {
       return;
     }
 
-    let prepLoadingSettled = false;
-    const settlePrepLoading = () => {
-      if (!prepLoadingSettled) {
-        prepLoadingSettled = true;
-        setPrepLoading(false);
-      }
-    };
-
-    if (!selectedDashboardId) {
-      setPrepLoading(true);
-      fetchItems()
-        .catch((err) => {
-          console.error("Failed loading prep items:", err);
-        })
-        .finally(settlePrepLoading);
-      return;
-    }
-
     setPrepLoading(true);
-    const unsubscribePrepItems = subscribeToPrepItems(selectedDashboardId, {
-      onInitialSnapshot: settlePrepLoading,
+    const unsubscribe = subscribeToItems(selectedDashboardId || null, {
+      onInitialSnapshot: () => setPrepLoading(false),
       onError: (error) => {
-        console.error("Failed to subscribe to prep items:", error);
-        settlePrepLoading();
+        console.error("Failed syncing prep items:", error);
       },
     });
 
-    fetchItems().catch((err) => {
-      console.error("Failed loading prep items:", err);
-    }).finally(settlePrepLoading);
-
-    return () => {
-      unsubscribePrepItems();
-    };
-  }, [currentUserEmail, fetchItems, selectedDashboardId, subscribeToPrepItems]);
+    return unsubscribe;
+  }, [currentUserEmail, selectedDashboardId, subscribeToItems]);
 
   useEffect(() => {
     if (!currentUserEmail) {

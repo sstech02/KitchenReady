@@ -1,10 +1,47 @@
 import { create } from "zustand";
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
 import type { PrepItem } from "../models/PrepItem";
-import { getApiBaseUrl, getSessionHeaders, getStoredDashboardId } from "../services/sessionHeaders";
+import { db } from "../services/firebase";
+import { getApiBaseUrl, getSessionHeaders, getStoredDashboardId, getStoredUserEmail } from "../services/sessionHeaders";
+
+const guestEmail = "guest@kitchenready.app";
+const isGuestMode = () => getStoredUserEmail() === guestEmail;
+
+type PrepItemSyncCallbacks = {
+  onInitialSnapshot?: () => void;
+  onError?: (error: unknown) => void;
+};
+
+const prepItemsCollectionName = "prep-items";
+
+export const syncPrepItemToFirestore = async (item: PrepItem): Promise<void> => {
+  if (!db) {
+    return;
+  }
+
+  const dashboardId = getStoredDashboardId();
+  if (!dashboardId) {
+    return;
+  }
+
+  await setDoc(doc(db, prepItemsCollectionName, item.id), {
+    ...item,
+    dashboardId,
+  });
+};
+
+export const deletePrepItemFromFirestore = async (id: string): Promise<void> => {
+  if (!db) {
+    return;
+  }
+
+  await deleteDoc(doc(db, prepItemsCollectionName, id));
+};
 
 type PrepStore = {
   items: PrepItem[];
   fetchItems: () => Promise<void>;
+  subscribeToItems: (dashboardId: string | null, callbacks?: PrepItemSyncCallbacks) => () => void;
   setStatus: (id: string, status: PrepItem["status"]) => Promise<void>;
   assignTo: (id: string, assignee: string) => void;
   setOnHand: (id: string, onHand: number) => Promise<void>;
@@ -12,6 +49,8 @@ type PrepStore = {
   setTargetQty: (id: string, targetQty: number) => Promise<void>;
   setPriority: (id: string, priority: PrepItem["priority"]) => Promise<void>;
   addItem: (item: PrepItem) => void;
+  updateItemLocal: (id: string, item: PrepItem) => void;
+  removeItemLocal: (id: string) => void;
 };
 
 const persistUpdatedItem = async (
@@ -24,6 +63,10 @@ const persistUpdatedItem = async (
   set((state) => ({
     items: state.items.map((item) => (item.id === id ? updatedItem : item)),
   }));
+
+  if (isGuestMode()) {
+    return;
+  }
 
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/prep-items/${id}`, {
@@ -40,6 +83,10 @@ const persistUpdatedItem = async (
     set((state) => ({
       items: state.items.map((item) => (item.id === id ? savedItem : item)),
     }));
+
+    void syncPrepItemToFirestore(savedItem).catch((syncError) => {
+      console.error("Failed to mirror prep item update to Firestore:", syncError);
+    });
   } catch (error) {
     set({ items: previousItems });
     throw error;
@@ -62,6 +109,54 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
     if (!res.ok) throw new Error("Failed to fetch prep items");
     const items = (await res.json()) as PrepItem[];
     set({ items });
+  },
+
+  subscribeToItems: (dashboardId, callbacks) => {
+    if (!dashboardId) {
+      set({ items: [] });
+      callbacks?.onInitialSnapshot?.();
+      return () => undefined;
+    }
+
+    if (!db) {
+      void get()
+        .fetchItems()
+        .then(() => callbacks?.onInitialSnapshot?.())
+        .catch((error) => {
+          callbacks?.onError?.(error);
+          callbacks?.onInitialSnapshot?.();
+        });
+
+      return () => undefined;
+    }
+
+    const prepItemsQuery = query(
+      collection(db, prepItemsCollectionName),
+      where("dashboardId", "==", dashboardId),
+    );
+    let initialSnapshotHandled = false;
+
+    return onSnapshot(
+      prepItemsQuery,
+      (snapshot) => {
+        const nextItems = snapshot.docs.map((snapshotDoc) => snapshotDoc.data() as PrepItem);
+
+        set({ items: nextItems });
+
+        if (!initialSnapshotHandled) {
+          initialSnapshotHandled = true;
+          callbacks?.onInitialSnapshot?.();
+        }
+      },
+      (error) => {
+        console.error("Failed to subscribe to prep items:", error);
+        if (!initialSnapshotHandled) {
+          initialSnapshotHandled = true;
+          callbacks?.onInitialSnapshot?.();
+        }
+        callbacks?.onError?.(error);
+      },
+    );
   },
 
   setStatus: async (id, status) => {
@@ -154,5 +249,15 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
   addItem: (item) =>
     set((state) => ({
       items: [...state.items, item],
+    })),
+
+  updateItemLocal: (id, item) =>
+    set((state) => ({
+      items: state.items.map((existing) => (existing.id === id ? item : existing)),
+    })),
+
+  removeItemLocal: (id) =>
+    set((state) => ({
+      items: state.items.filter((item) => item.id !== id),
     })),
 }));

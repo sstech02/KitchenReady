@@ -9,7 +9,8 @@
     "priority": 2,
     "status": "todo",
     "assignedTo": "Sam",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "id": "prep-2",
@@ -21,7 +22,8 @@
     "priority": 1,
     "status": "todo",
     "assignedTo": "Ari",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "id": "prep-3",
@@ -33,7 +35,8 @@
     "priority": 1,
     "status": "todo",
     "assignedTo": "Lee",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "id": "prep-4",
@@ -45,7 +48,8 @@
     "priority": 1,
     "status": "todo",
     "assignedTo": "Jordan",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "name": "Test",
@@ -58,7 +62,8 @@
     "status": "todo",
     "assignedTo": "Sam",
     "id": "d1ad7c7d-e1ce-445f-a9fd-3ce94c5a5665",
-    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57"
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "recipeId": "rec-1"
   },
   {
     "name": "Burger patties",
@@ -68,24 +73,26 @@
     "targetQty": 0,
     "unit": "pan",
     "priority": 3,
-    "status": "done",
+    "status": "todo",
     "notes": "Do first",
     "id": "06989dac-5557-4fba-91af-9ea442593631",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-06989dac-5557-4fba-91af-9ea442593631"
   },
   {
     "name": "Roasted Garlic Aoli",
     "station": "Cold prep",
     "parLevel": 1,
     "onHand": 2,
-    "targetQty": 4,
+    "targetQty": 0,
     "unit": "each",
     "priority": 3,
-    "status": "done",
+    "status": "todo",
     "assignedTo": "Lee",
     "notes": "Use fresh first and then jarred",
     "id": "4c879574-070c-449c-88ac-d86e73396ac4",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-4c879574-070c-449c-88ac-d86e73396ac4"
   },
   {
     "name": "Fries",
@@ -99,20 +106,79 @@
     "assignedTo": "Jen",
     "notes": "Contact second supplier",
     "id": "4bb3c5cb-78fa-4758-b4a0-ff1f48fce269",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-4bb3c5cb-78fa-4758-b4a0-ff1f48fce269"
   },
   {
-    "name": "Bread",
-    "station": "Bakery",
-    "parLevel": 3,
+    "name": "Diced Onion",
+    "parLevel": 4,
     "onHand": 1,
-    "targetQty": 3,
+    "targetQty": 0,
     "unit": "each",
     "priority": 2,
-    "status": "in_progress",
-    "assignedTo": "Brent",
-    "notes": "Use starter dough",
-    "id": "06021c8a-afd5-440d-81f9-cd26ba43531c",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c"
+    "status": "todo",
+    "id": "2224b3d7-822d-431e-b7bf-beb2068d9eaa",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-2224b3d7-822d-431e-b7bf-beb2068d9eaa"
+  },
+  {
+    "name": "Cheddar Cheese",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "14f1ac96-7018-4c70-a113-73e52e39ef8c",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-14f1ac96-7018-4c70-a113-73e52e39ef8c"
+  },
+  {
+    "name": "Mayo",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "5c2b74de-0f0d-4bac-b965-0aa98840a5da",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-5c2b74de-0f0d-4bac-b965-0aa98840a5da"
+  },
+  {
+    "name": "Item",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "0cc0bad7-e963-4499-8295-aa2256fd89b5",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-0cc0bad7-e963-4499-8295-aa2256fd89b5"
+  },
+  {
+    "name": "Roasted Garlic Aoli",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "1a43b008-6f5c-4bd3-98e0-18ed154800ec",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-1a43b008-6f5c-4bd3-98e0-18ed154800ec"
+  },
+  {
+    "name": "Test",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "16b2d462-af3c-42a9-96f9-7aab7ee25007",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-16b2d462-af3c-42a9-96f9-7aab7ee25007"
   }
 ]

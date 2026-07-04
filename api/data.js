@@ -62,6 +62,8 @@ export const recipes = [
 id: "rec-1",
 name: "Ranch Dressing",
 category: "sauce",
+guideUrl: "https://www.allrecipes.com/recipe/16131/ranch-dressing-ii/",
+videoSearchUrl: "https://www.youtube.com/results?search_query=homemade+ranch+dressing+recipe",
 ingredients: [
 { id: "ing-1", name: "Buttermilk", quantity: 2, unit: "cup" },
 { id: "ing-2", name: "Mayonnaise", quantity: 1, unit: "cup" },
@@ -80,6 +82,8 @@ updatedAt: new Date().toISOString(),
 id: "rec-2",
 name: "House Croutons",
 category: "bakery",
+guideUrl: "https://www.simplyrecipes.com/recipes/how_to_make_croutons/",
+videoSearchUrl: "https://www.youtube.com/results?search_query=homemade+croutons+recipe",
 ingredients: [
 { id: "ing-4", name: "Bread cubes", quantity: 1, unit: "tray" },
 { id: "ing-5", name: "Olive oil", quantity: 4, unit: "tbsp" },

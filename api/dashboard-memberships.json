@@ -24,14 +24,6 @@
     "updatedAt": "2026-06-18T20:02:51.726Z"
   },
   {
-    "id": "82a29c82-1386-46d2-8184-8712a40e63fb",
-    "dashboardId": "333f1f22-4c67-4c26-9289-bb1579933827",
-    "userEmail": "samschill.dev@gmail.com",
-    "role": "admin",
-    "createdAt": "2026-06-18T19:00:09.890Z",
-    "updatedAt": "2026-06-18T19:00:09.890Z"
-  },
-  {
     "id": "1d28747d-fca6-4663-95fd-ab13b1716f8c",
     "dashboardId": "fbabce4b-c4d8-4e7c-8c02-6aa7eb63ab17",
     "userEmail": "samuelsch002@gmail.com",
@@ -46,5 +38,13 @@
     "role": "admin",
     "createdAt": "2026-06-18T20:00:48.701Z",
     "updatedAt": "2026-06-18T20:02:22.230Z"
+  },
+  {
+    "id": "13d4cbc6-08a2-4035-b60a-a008986b4579",
+    "dashboardId": "b7cfeb2a-2667-4ea9-8d33-9462f1b5dc57",
+    "userEmail": "guest@kitchenready.app",
+    "role": "operator",
+    "createdAt": "2026-06-25T18:45:25.178Z",
+    "updatedAt": "2026-06-25T18:45:25.178Z"
   }
 ]

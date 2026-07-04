@@ -1,3 +1,5 @@
+import { auth } from "./firebase";
+
 const userEmailKey = "kitchenready-user-email";
 const dashboardIdKey = "kitchenready-dashboard-id";
 
@@ -32,10 +34,15 @@ export const getApiBaseUrl = (): string => {
   return "http://localhost:4000";
 };
 
-export const getSessionHeaders = (): Record<string, string> => {
+type SessionHeaderOptions = {
+  userEmail?: string | null;
+  dashboardId?: string | null;
+};
+
+export const getSessionHeaders = (options: SessionHeaderOptions = {}): Record<string, string> => {
   const headers: Record<string, string> = {};
-  const userEmail = getStoredUserEmail();
-  const dashboardId = getStoredDashboardId();
+  const userEmail = options.userEmail ?? getStoredUserEmail() ?? auth?.currentUser?.email ?? null;
+  const dashboardId = options.dashboardId ?? getStoredDashboardId();
 
   if (userEmail) {
     headers["x-user-email"] = userEmail;

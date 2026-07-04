@@ -6,6 +6,7 @@ import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 type Props = {
   dashboardId: string;
   currentUserEmail: string;
+  isGuestMode?: boolean;
   onClose: () => void;
   onMembershipChanged?: () => Promise<void> | void;
 };
@@ -47,6 +48,7 @@ const toErrorMessage = (fallback: string, body: unknown): string => {
 function DashboardMembersPanel({
   dashboardId,
   currentUserEmail,
+  isGuestMode = false,
   onClose,
   onMembershipChanged,
 }: Props) {
@@ -91,11 +93,27 @@ function DashboardMembersPanel({
       const payload = (await res.json()) as DashboardMembership[];
       setMembers(payload);
     } catch (loadError) {
+      if (isGuestMode) {
+        const now = new Date().toISOString();
+        setMembers([
+          {
+            id: `guest-member-self-${dashboardId}`,
+            dashboardId,
+            userEmail: currentUserEmail,
+            role: "admin",
+            createdAt: now,
+            updatedAt: now,
+          },
+        ]);
+        setError("");
+        return;
+      }
+
       setError(loadError instanceof Error ? loadError.message : "Failed to load dashboard members.");
     } finally {
       setLoading(false);
     }
-  }, [dashboardId, requestHeaders]);
+  }, [currentUserEmail, dashboardId, isGuestMode, requestHeaders]);
 
   useEffect(() => {
     void loadMembers();
@@ -107,6 +125,33 @@ function DashboardMembersPanel({
     const normalizedEmail = newUserEmail.trim().toLowerCase();
     if (!normalizedEmail) {
       setError("User email is required.");
+      return;
+    }
+
+    if (isGuestMode) {
+      const now = new Date().toISOString();
+      const alreadyExists = members.some((member) => member.userEmail === normalizedEmail);
+
+      if (alreadyExists) {
+        setError("That user is already listed in this guest session.");
+        return;
+      }
+
+      setMembers((current) => [
+        ...current,
+        {
+          id: `guest-member-${crypto.randomUUID()}`,
+          dashboardId,
+          userEmail: normalizedEmail,
+          role: newRole,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ]);
+      setNewUserEmail("");
+      setNewRole("viewer");
+      setError("");
+      setMessage(`Added ${normalizedEmail} as ${roleLabel[newRole]} in guest mode (not saved).`);
       return;
     }
 
@@ -139,6 +184,18 @@ function DashboardMembersPanel({
   };
 
   const handleRoleChange = async (memberId: string, role: Role) => {
+    if (isGuestMode) {
+      const now = new Date().toISOString();
+      setMembers((current) =>
+        current.map((member) =>
+          member.id === memberId ? { ...member, role, updatedAt: now } : member,
+        ),
+      );
+      setError("");
+      setMessage("Member role updated in guest mode (not saved).");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -166,6 +223,18 @@ function DashboardMembersPanel({
   };
 
   const handleRemoveMember = async (member: DashboardMembership) => {
+    if (isGuestMode) {
+      const confirmedGuest = window.confirm(`Remove ${member.userEmail} from this guest session?`);
+      if (!confirmedGuest) {
+        return;
+      }
+
+      setMembers((current) => current.filter((entry) => entry.id !== member.id));
+      setError("");
+      setMessage(`Removed ${member.userEmail} in guest mode (not saved).`);
+      return;
+    }
+
     const confirmed = window.confirm(`Remove ${member.userEmail} from this dashboard?`);
     if (!confirmed) {
       return;

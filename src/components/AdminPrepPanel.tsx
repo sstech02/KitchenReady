@@ -3,9 +3,11 @@ import type { PrepItem } from "../models/PrepItem";
 import { PREP_STATUSES } from "../models/PrepStatus";
 import { UNITS } from "../models/Unit";
 import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
+import { deletePrepItemFromFirestore, syncPrepItemToFirestore, usePrepStore } from "../store/usePrepStore";
 
 type Props = {
   adminEmail: string;
+  isGuestMode?: boolean;
   items: PrepItem[];
   onClose: () => void;
   onItemsChanged: () => Promise<void>;
@@ -50,7 +52,10 @@ const toPayload = (draft: DraftItem): Omit<PrepItem, "id"> => ({
   notes: draft.notes.trim() || undefined,
 });
 
-function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
+function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onItemsChanged }: Props) {
+  const addLocalItem = usePrepStore((state) => state.addItem);
+  const updateLocalItem = usePrepStore((state) => state.updateItemLocal);
+  const removeLocalItem = usePrepStore((state) => state.removeItemLocal);
   const [creating, setCreating] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -100,6 +105,18 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
     }
 
     const payload = toPayload(newItem);
+
+    if (isGuestMode) {
+      const localItem: PrepItem = {
+        id: `guest-${crypto.randomUUID()}`,
+        ...payload,
+      };
+      addLocalItem(localItem);
+      setNewItem(emptyDraft);
+      setMessage("Prep item created in guest mode. Changes are local and not saved.");
+      return;
+    }
+
     setCreating(true);
 
     try {
@@ -116,6 +133,11 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
       if (!res.ok) {
         throw new Error(`Failed to create item (${res.status}).`);
       }
+
+      const savedItem = (await res.json()) as PrepItem;
+      void syncPrepItemToFirestore(savedItem).catch((firestoreError) => {
+        console.error("Failed to sync new prep item to Firestore:", firestoreError);
+      });
 
       await onItemsChanged();
       setNewItem(emptyDraft);
@@ -140,6 +162,17 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
       return;
     }
 
+    if (isGuestMode) {
+      const updatedItem: PrepItem = {
+        id,
+        ...toPayload(editDraft),
+      };
+      updateLocalItem(id, updatedItem);
+      setEditingId(null);
+      setMessage("Prep item updated in guest mode. Changes are local and not saved.");
+      return;
+    }
+
     setSavingId(id);
 
     try {
@@ -157,6 +190,11 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
       if (!res.ok) {
         throw new Error(`Failed to update item (${res.status}).`);
       }
+
+      const savedItem = (await res.json()) as PrepItem;
+      void syncPrepItemToFirestore(savedItem).catch((firestoreError) => {
+        console.error("Failed to sync updated prep item to Firestore:", firestoreError);
+      });
 
       await onItemsChanged();
       setEditingId(null);
@@ -177,6 +215,15 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
       return;
     }
 
+    if (isGuestMode) {
+      removeLocalItem(id);
+      if (editingId === id) {
+        cancelEdit();
+      }
+      setMessage("Prep item deleted in guest mode. Changes are local and not saved.");
+      return;
+    }
+
     setDeletingId(id);
 
     try {
@@ -191,6 +238,10 @@ function AdminPrepPanel({ adminEmail, items, onClose, onItemsChanged }: Props) {
       if (!res.ok) {
         throw new Error(`Failed to delete item (${res.status}).`);
       }
+
+      await deletePrepItemFromFirestore(id).catch((firestoreError) => {
+        console.error("Failed to delete prep item from Firestore:", firestoreError);
+      });
 
       await onItemsChanged();
       if (editingId === id) {

@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import type { User } from "firebase/auth";
 import type { ShiftHandover } from "../models/ShiftHand";
 import { getApiBaseUrl } from "../services/sessionHeaders";
 import type { Unit } from "../models/Unit";
@@ -14,13 +13,14 @@ type LowStockDraft = {
 };
 
 type Props = {
-  currentUser: User;
+  currentUserEmail: string;
+  isGuestMode?: boolean;
   prepItems: PrepItem[];
   onClose: () => void;
   onSubmitted?: (handover: ShiftHandover) => void;
 };
 
-function ShiftHandoverForm({ currentUser, prepItems, onClose, onSubmitted }: Props) {
+function ShiftHandoverForm({ currentUserEmail, isGuestMode = false, prepItems, onClose, onSubmitted }: Props) {
   const today = new Date().toISOString().slice(0, 10);
 
   const [businessDate, setBusinessDate] = useState(today);
@@ -81,7 +81,7 @@ function ShiftHandoverForm({ currentUser, prepItems, onClose, onSubmitted }: Pro
     const handover: Omit<ShiftHandover, "id"> = {
       businessDate,
       shiftType,
-      fromUser: currentUser.email ?? currentUser.uid,
+      fromUser: currentUserEmail,
       toUser: toUser.trim() || undefined,
       summary,
       prepItems,
@@ -92,6 +92,13 @@ function ShiftHandoverForm({ currentUser, prepItems, onClose, onSubmitted }: Pro
       createdAt: now,
       updatedAt: now,
     };
+
+    if (isGuestMode) {
+      onSubmitted?.({ id: `guest-handover-${crypto.randomUUID()}`, ...handover });
+      setSubmitting(false);
+      onClose();
+      return;
+    }
 
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/handovers`, {
@@ -173,7 +180,7 @@ function ShiftHandoverForm({ currentUser, prepItems, onClose, onSubmitted }: Pro
                 <span>From (you)</span>
                 <input
                   type="text"
-                  value={currentUser.email ?? currentUser.uid}
+                  value={currentUserEmail}
                   readOnly
                   className="handover-readonly"
                 />

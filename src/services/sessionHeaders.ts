@@ -30,8 +30,14 @@ export const getApiBaseUrl = (): string => {
   if (envUrl) {
     return envUrl.replace(/\/$/, ""); // Remove trailing slash
   }
-  // Default to localhost for local dev
-  return "http://localhost:4000";
+
+  if (import.meta.env.DEV) {
+    // Local API server used during development.
+    return "http://localhost:4000";
+  }
+
+  // Production fallback API host used by Vercel frontend deployments.
+  return "https://kitchenready-production.up.railway.app";
 };
 
 type SessionHeaderOptions = {

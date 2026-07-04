@@ -30,8 +30,14 @@ export const getApiBaseUrl = (): string => {
   if (envUrl) {
     return envUrl.replace(/\/$/, ""); // Remove trailing slash
   }
-  // Default to localhost for local dev
-  return "http://localhost:4000";
+
+  if (import.meta.env.DEV) {
+    // Local API server used during development.
+    return "http://localhost:4000";
+  }
+
+  // In production, default to same-origin so deployed environments don't call localhost.
+  return "";
 };
 
 type SessionHeaderOptions = {

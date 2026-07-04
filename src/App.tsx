@@ -363,15 +363,14 @@ function App() {
       return;
     }
 
-    if (!prepSyncFallbackPolling && isFirebaseConfigured) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
+    const reconcilePrepItems = () => {
       void fetchItems().catch((error) => {
         console.error("Failed polling prep items:", error);
       });
-    }, 5000);
+    };
+
+    reconcilePrepItems();
+    const intervalId = window.setInterval(reconcilePrepItems, prepSyncFallbackPolling || !isFirebaseConfigured ? 3000 : 10000);
 
     return () => window.clearInterval(intervalId);
   }, [currentUserEmail, selectedDashboardId, prepSyncFallbackPolling, fetchItems]);

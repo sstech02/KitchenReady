@@ -141,6 +141,23 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
       where("dashboardId", "==", dashboardId),
     );
     let initialSnapshotHandled = false;
+    const markInitialSnapshotHandled = () => {
+      if (!initialSnapshotHandled) {
+        initialSnapshotHandled = true;
+        callbacks?.onInitialSnapshot?.();
+      }
+    };
+
+    // Load API data immediately so prep cards render while Firestore connects.
+    void get()
+      .fetchItems()
+      .then(() => {
+        markInitialSnapshotHandled();
+      })
+      .catch((error) => {
+        callbacks?.onError?.(error);
+        markInitialSnapshotHandled();
+      });
 
     return onSnapshot(
       prepItemsQuery,
@@ -149,52 +166,29 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
           .map((snapshotDoc) => snapshotDoc.data() as PrepItem)
           .filter((item) => !pendingDeletedIds.has(item.id));
 
-        if (!initialSnapshotHandled && nextItems.length === 0) {
-          void get()
-            .fetchItems()
-            .then(() => {
-              const apiItems = get().items;
+        if (nextItems.length === 0) {
+          const apiItems = get().items;
 
-              if (!initialSnapshotHandled) {
-                initialSnapshotHandled = true;
-                callbacks?.onInitialSnapshot?.();
-              }
+          if (apiItems.length > 0) {
+            void Promise.all(
+              apiItems.map((item) =>
+                syncPrepItemToFirestore(item).catch((syncError) => {
+                  console.error("Failed to backfill prep item to Firestore:", syncError);
+                }),
+              ),
+            );
+          }
 
-              if (apiItems.length > 0) {
-                void Promise.all(
-                  apiItems.map((item) =>
-                    syncPrepItemToFirestore(item).catch((syncError) => {
-                      console.error("Failed to backfill prep item to Firestore:", syncError);
-                    }),
-                  ),
-                );
-              }
-            })
-            .catch((error) => {
-              callbacks?.onError?.(error);
-
-              if (!initialSnapshotHandled) {
-                initialSnapshotHandled = true;
-                callbacks?.onInitialSnapshot?.();
-              }
-            });
-
+          markInitialSnapshotHandled();
           return;
         }
 
         set({ items: nextItems });
-
-        if (!initialSnapshotHandled) {
-          initialSnapshotHandled = true;
-          callbacks?.onInitialSnapshot?.();
-        }
+        markInitialSnapshotHandled();
       },
       (error) => {
         console.error("Failed to subscribe to prep items:", error);
-        if (!initialSnapshotHandled) {
-          initialSnapshotHandled = true;
-          callbacks?.onInitialSnapshot?.();
-        }
+        markInitialSnapshotHandled();
         callbacks?.onError?.(error);
       },
     );

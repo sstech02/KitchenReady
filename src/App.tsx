@@ -151,6 +151,8 @@ function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [prepLoading, setPrepLoading] = useState(false);
   const [prepSyncFallbackPolling, setPrepSyncFallbackPolling] = useState(!isFirebaseConfigured);
+  const [lastPrepRefreshAt, setLastPrepRefreshAt] = useState<number | null>(null);
+  const [lastPrepRefreshNow, setLastPrepRefreshNow] = useState(() => Date.now());
   const [recipesLoading, setRecipesLoading] = useState(false);
   const [prepOrder, setPrepOrder] = useState<string[]>([]);
   const [recipeOrder, setRecipeOrder] = useState<string[]>([]);
@@ -374,6 +376,28 @@ function App() {
 
     return () => window.clearInterval(intervalId);
   }, [currentUserEmail, selectedDashboardId, prepSyncFallbackPolling, fetchItems]);
+
+  useEffect(() => {
+    if (!currentUserEmail || !selectedDashboardId) {
+      setLastPrepRefreshAt(null);
+      return;
+    }
+
+    setLastPrepRefreshAt(Date.now());
+    setLastPrepRefreshNow(Date.now());
+  }, [currentUserEmail, selectedDashboardId, prepItems]);
+
+  useEffect(() => {
+    if (!lastPrepRefreshAt) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setLastPrepRefreshNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [lastPrepRefreshAt]);
 
   useEffect(() => {
     if (!currentUserEmail) {
@@ -669,6 +693,20 @@ function App() {
   const progressPercent =
     totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
   const isLiveSyncEnabled = Boolean(currentUserEmail && selectedDashboardId) && isFirebaseConfigured && !prepSyncFallbackPolling;
+  const prepRefreshAgeSeconds =
+    lastPrepRefreshAt === null ? null : Math.max(0, Math.floor((lastPrepRefreshNow - lastPrepRefreshAt) / 1000));
+  const prepRefreshLabel =
+    prepRefreshAgeSeconds === null
+      ? "Last refreshed: --"
+      : prepRefreshAgeSeconds === 0
+        ? "Last refreshed: just now"
+        : prepRefreshAgeSeconds === 1
+          ? "Last refreshed: 1s ago"
+          : prepRefreshAgeSeconds < 60
+            ? `Last refreshed: ${prepRefreshAgeSeconds}s ago`
+            : prepRefreshAgeSeconds < 120
+              ? "Last refreshed: 1m ago"
+              : `Last refreshed: ${Math.floor(prepRefreshAgeSeconds / 60)}m ago`;
 
   const handleMembershipChanged = async () => {
     if (!currentUserEmail) {
@@ -1195,6 +1233,7 @@ function App() {
                   <span className={`sync-status-pill ${isLiveSyncEnabled ? "sync-on" : "sync-off"}`} role="status" aria-live="polite">
                     Live sync: {isLiveSyncEnabled ? "on" : "off"}
                   </span>
+                  <span className="sync-refresh-pill" aria-live="polite">{prepRefreshLabel}</span>
                   <button
                     type="button"
                     className="theme-toggle"

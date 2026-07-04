@@ -36,8 +36,8 @@ export const getApiBaseUrl = (): string => {
     return "http://localhost:4000";
   }
 
-  // In production, default to same-origin so deployed environments don't call localhost.
-  return "";
+  // Production fallback API host used by Vercel frontend deployments.
+  return "https://kitchenready-production.up.railway.app";
 };
 
 type SessionHeaderOptions = {

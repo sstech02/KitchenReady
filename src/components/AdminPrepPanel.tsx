@@ -239,6 +239,8 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
         throw new Error(`Failed to delete item (${res.status}).`);
       }
 
+      removeLocalItem(id);
+
       await deletePrepItemFromFirestore(id).catch((firestoreError) => {
         console.error("Failed to delete prep item from Firestore:", firestoreError);
       });

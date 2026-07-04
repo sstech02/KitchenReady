@@ -6,6 +6,7 @@ import { getApiBaseUrl, getSessionHeaders, getStoredDashboardId, getStoredUserEm
 
 const guestEmail = "guest@kitchenready.app";
 const isGuestMode = () => getStoredUserEmail() === guestEmail;
+const pendingDeletedIds = new Set<string>();
 
 type PrepItemSyncCallbacks = {
   onInitialSnapshot?: () => void;
@@ -108,6 +109,11 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
     });
     if (!res.ok) throw new Error("Failed to fetch prep items");
     const items = (await res.json()) as PrepItem[];
+    pendingDeletedIds.forEach((id) => {
+      if (!items.some((item) => item.id === id)) {
+        pendingDeletedIds.delete(id);
+      }
+    });
     set({ items });
   },
 
@@ -139,7 +145,42 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
     return onSnapshot(
       prepItemsQuery,
       (snapshot) => {
-        const nextItems = snapshot.docs.map((snapshotDoc) => snapshotDoc.data() as PrepItem);
+        const nextItems = snapshot.docs
+          .map((snapshotDoc) => snapshotDoc.data() as PrepItem)
+          .filter((item) => !pendingDeletedIds.has(item.id));
+
+        if (!initialSnapshotHandled && nextItems.length === 0) {
+          void get()
+            .fetchItems()
+            .then(() => {
+              const apiItems = get().items;
+
+              if (!initialSnapshotHandled) {
+                initialSnapshotHandled = true;
+                callbacks?.onInitialSnapshot?.();
+              }
+
+              if (apiItems.length > 0) {
+                void Promise.all(
+                  apiItems.map((item) =>
+                    syncPrepItemToFirestore(item).catch((syncError) => {
+                      console.error("Failed to backfill prep item to Firestore:", syncError);
+                    }),
+                  ),
+                );
+              }
+            })
+            .catch((error) => {
+              callbacks?.onError?.(error);
+
+              if (!initialSnapshotHandled) {
+                initialSnapshotHandled = true;
+                callbacks?.onInitialSnapshot?.();
+              }
+            });
+
+          return;
+        }
 
         set({ items: nextItems });
 
@@ -257,7 +298,11 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
     })),
 
   removeItemLocal: (id) =>
-    set((state) => ({
-      items: state.items.filter((item) => item.id !== id),
-    })),
+    set((state) => {
+      pendingDeletedIds.add(id);
+
+      return {
+        items: state.items.filter((item) => item.id !== id),
+      };
+    }),
 }));

@@ -66,35 +66,6 @@
     "recipeId": "rec-1"
   },
   {
-    "name": "Burger patties",
-    "station": "Grill",
-    "parLevel": 2,
-    "onHand": 0,
-    "targetQty": 0,
-    "unit": "pan",
-    "priority": 3,
-    "status": "todo",
-    "notes": "Do first",
-    "id": "06989dac-5557-4fba-91af-9ea442593631",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-06989dac-5557-4fba-91af-9ea442593631"
-  },
-  {
-    "name": "Roasted Garlic Aoli",
-    "station": "Cold prep",
-    "parLevel": 1,
-    "onHand": 2,
-    "targetQty": 0,
-    "unit": "each",
-    "priority": 3,
-    "status": "todo",
-    "assignedTo": "Lee",
-    "notes": "Use fresh first and then jarred",
-    "id": "4c879574-070c-449c-88ac-d86e73396ac4",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-4c879574-070c-449c-88ac-d86e73396ac4"
-  },
-  {
     "name": "Fries",
     "station": "Fry",
     "parLevel": 4,
@@ -108,30 +79,6 @@
     "id": "4bb3c5cb-78fa-4758-b4a0-ff1f48fce269",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
     "recipeId": "prep-recipe-4bb3c5cb-78fa-4758-b4a0-ff1f48fce269"
-  },
-  {
-    "name": "Diced Onion",
-    "parLevel": 4,
-    "onHand": 1,
-    "targetQty": 0,
-    "unit": "each",
-    "priority": 2,
-    "status": "todo",
-    "id": "2224b3d7-822d-431e-b7bf-beb2068d9eaa",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-2224b3d7-822d-431e-b7bf-beb2068d9eaa"
-  },
-  {
-    "name": "Cheddar Cheese",
-    "parLevel": 0,
-    "onHand": 0,
-    "targetQty": 0,
-    "unit": "each",
-    "priority": 2,
-    "status": "todo",
-    "id": "14f1ac96-7018-4c70-a113-73e52e39ef8c",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-14f1ac96-7018-4c70-a113-73e52e39ef8c"
   },
   {
     "name": "Mayo",
@@ -180,5 +127,29 @@
     "id": "16b2d462-af3c-42a9-96f9-7aab7ee25007",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
     "recipeId": "prep-recipe-16b2d462-af3c-42a9-96f9-7aab7ee25007"
+  },
+  {
+    "name": "Test",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "3a7e9853-9dfa-4653-8b1d-cbccc00fcfc9",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-3a7e9853-9dfa-4653-8b1d-cbccc00fcfc9"
+  },
+  {
+    "name": "Test",
+    "parLevel": 0,
+    "onHand": 0,
+    "targetQty": 0,
+    "unit": "each",
+    "priority": 2,
+    "status": "todo",
+    "id": "861f0038-03b2-4d97-ac40-b39c9d75c233",
+    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
+    "recipeId": "prep-recipe-861f0038-03b2-4d97-ac40-b39c9d75c233"
   }
 ]

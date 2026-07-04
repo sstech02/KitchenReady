@@ -115,6 +115,7 @@ const ZOOM_STEP = 25;
 
 function App() {
   const prepItems = usePrepStore((state) => state.items);
+  const fetchItems = usePrepStore((state) => state.fetchItems);
   const subscribeToItems = usePrepStore((state) => state.subscribeToItems);
   const [user, setUser] = useState<User | null>(null);
   const [guestSessionEmail, setGuestSessionEmail] = useState<string | null>(null);
@@ -253,6 +254,12 @@ function App() {
 
   const handlePrepItemsChanged = useCallback(async () => {
     try {
+      await fetchItems();
+    } catch (error) {
+      console.error("Failed to refresh prep items:", error);
+    }
+
+    try {
       setRecipesLoading(true);
       const recipeItems = await fetchRecipes();
       setRecipes(recipeItems);
@@ -261,7 +268,7 @@ function App() {
     } finally {
       setRecipesLoading(false);
     }
-  }, [fetchRecipes]);
+  }, [fetchItems, fetchRecipes]);
 
   // Persist & apply theme
   useEffect(() => {

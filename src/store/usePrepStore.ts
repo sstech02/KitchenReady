@@ -14,7 +14,7 @@ type PrepItemSyncCallbacks = {
 
 const prepItemsCollectionName = "prep-items";
 
-const syncPrepItemToFirestore = async (item: PrepItem): Promise<void> => {
+export const syncPrepItemToFirestore = async (item: PrepItem): Promise<void> => {
   if (!db) {
     return;
   }

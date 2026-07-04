@@ -3,7 +3,7 @@ import type { PrepItem } from "../models/PrepItem";
 import { PREP_STATUSES } from "../models/PrepStatus";
 import { UNITS } from "../models/Unit";
 import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
-import { deletePrepItemFromFirestore, usePrepStore } from "../store/usePrepStore";
+import { deletePrepItemFromFirestore, syncPrepItemToFirestore, usePrepStore } from "../store/usePrepStore";
 
 type Props = {
   adminEmail: string;
@@ -134,6 +134,11 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
         throw new Error(`Failed to create item (${res.status}).`);
       }
 
+      const createdItem = (await res.json()) as PrepItem;
+      await syncPrepItemToFirestore(createdItem).catch((firestoreError) => {
+        console.error("Failed to sync created prep item to Firestore:", firestoreError);
+      });
+
       await onItemsChanged();
       setNewItem(emptyDraft);
       setMessage("Prep item created.");
@@ -185,6 +190,11 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
       if (!res.ok) {
         throw new Error(`Failed to update item (${res.status}).`);
       }
+
+      const savedItem = (await res.json()) as PrepItem;
+      await syncPrepItemToFirestore(savedItem).catch((firestoreError) => {
+        console.error("Failed to sync updated prep item to Firestore:", firestoreError);
+      });
 
       await onItemsChanged();
       setEditingId(null);

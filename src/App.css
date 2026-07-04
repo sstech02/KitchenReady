@@ -2597,6 +2597,43 @@
   margin-bottom: 6px;
 }
 
+.sync-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.sync-status-pill.sync-on {
+  color: #14532d;
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.sync-status-pill.sync-off {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+[data-theme="dark"] .sync-status-pill.sync-on {
+  color: #86efac;
+  background: #14532d;
+  border-color: #166534;
+}
+
+[data-theme="dark"] .sync-status-pill.sync-off {
+  color: #fca5a5;
+  background: #7f1d1d;
+  border-color: #991b1b;
+}
+
 /* ============================================================
    GUIDE PANEL
    ============================================================ */

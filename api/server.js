@@ -535,12 +535,35 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5174",
   "http://127.0.0.1:5173",
+  "https://kitchen-ready.vercel.app",
+  "https://kitchen-ready-42lx3rt6v-sstech02s-projects.vercel.app",
 ];
 
-// Add production domain from environment variable if available
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
+const envFrontendOrigins = (process.env.FRONTEND_URL ?? "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+
+const isAllowedVercelPreviewOrigin = (origin) => {
+  try {
+    const parsed = new URL(origin);
+    return parsed.hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+};
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) {
+    return true;
+  }
+
+  if (allowedOrigins.includes(origin) || envFrontendOrigins.includes(origin)) {
+    return true;
+  }
+
+  return isAllowedVercelPreviewOrigin(origin);
+};
 
 app.use(
   cors({
@@ -548,7 +571,7 @@ app.use(
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+      if (isAllowedOrigin(origin) || process.env.NODE_ENV !== "production") {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));

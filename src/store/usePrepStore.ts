@@ -141,6 +141,7 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
       where("dashboardId", "==", dashboardId),
     );
     let initialSnapshotHandled = false;
+    let backfillAttempted = false;
     const markInitialSnapshotHandled = () => {
       if (!initialSnapshotHandled) {
         initialSnapshotHandled = true;
@@ -162,14 +163,16 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
     return onSnapshot(
       prepItemsQuery,
       (snapshot) => {
+        const currentItems = get().items;
         const nextItems = snapshot.docs
           .map((snapshotDoc) => snapshotDoc.data() as PrepItem)
           .filter((item) => !pendingDeletedIds.has(item.id));
 
         if (nextItems.length === 0) {
-          const apiItems = get().items;
+          const apiItems = currentItems;
 
-          if (apiItems.length > 0) {
+          if (!backfillAttempted && apiItems.length > 0) {
+            backfillAttempted = true;
             void Promise.all(
               apiItems.map((item) =>
                 syncPrepItemToFirestore(item).catch((syncError) => {
@@ -179,11 +182,29 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
             );
           }
 
+          // Keep current UI stable when Firestore snapshot is empty and reconcile from API.
+          void get().fetchItems().catch((error) => {
+            callbacks?.onError?.(error);
+          });
+
           markInitialSnapshotHandled();
           return;
         }
 
-        set({ items: nextItems });
+        const nextItemIds = new Set(nextItems.map((item) => item.id));
+        const looksLikePartialSnapshot =
+          currentItems.length > 0
+          && currentItems.some((item) => !nextItemIds.has(item.id) && !pendingDeletedIds.has(item.id));
+
+        if (!looksLikePartialSnapshot) {
+          set({ items: nextItems });
+        }
+
+        // Always reconcile with API so Firestore glitches do not cause card flicker.
+        void get().fetchItems().catch((error) => {
+          callbacks?.onError?.(error);
+        });
+
         markInitialSnapshotHandled();
       },
       (error) => {

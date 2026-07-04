@@ -150,6 +150,7 @@ function App() {
   const [zoom, setZoom] = useState<number>(() => Number(localStorage.getItem("kr-zoom")) || 100);
   const [showGuide, setShowGuide] = useState(false);
   const [prepLoading, setPrepLoading] = useState(false);
+  const [prepSyncFallbackPolling, setPrepSyncFallbackPolling] = useState(!isFirebaseConfigured);
   const [recipesLoading, setRecipesLoading] = useState(false);
   const [prepOrder, setPrepOrder] = useState<string[]>([]);
   const [recipeOrder, setRecipeOrder] = useState<string[]>([]);
@@ -338,19 +339,42 @@ function App() {
   useEffect(() => {
     if (!currentUserEmail) {
       setPrepLoading(false);
+      setPrepSyncFallbackPolling(!isFirebaseConfigured);
       return;
     }
 
     setPrepLoading(true);
     const unsubscribe = subscribeToItems(selectedDashboardId || null, {
-      onInitialSnapshot: () => setPrepLoading(false),
+      onInitialSnapshot: () => {
+        setPrepLoading(false);
+        setPrepSyncFallbackPolling(false);
+      },
       onError: (error) => {
         console.error("Failed syncing prep items:", error);
+        setPrepSyncFallbackPolling(true);
       },
     });
 
     return unsubscribe;
   }, [currentUserEmail, selectedDashboardId, subscribeToItems]);
+
+  useEffect(() => {
+    if (!currentUserEmail || !selectedDashboardId) {
+      return;
+    }
+
+    if (!prepSyncFallbackPolling && isFirebaseConfigured) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void fetchItems().catch((error) => {
+        console.error("Failed polling prep items:", error);
+      });
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [currentUserEmail, selectedDashboardId, prepSyncFallbackPolling, fetchItems]);
 
   useEffect(() => {
     if (!currentUserEmail) {
@@ -645,6 +669,7 @@ function App() {
   const totalCount = prepItems.length;
   const progressPercent =
     totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+  const isLiveSyncEnabled = Boolean(currentUserEmail && selectedDashboardId) && isFirebaseConfigured && !prepSyncFallbackPolling;
 
   const handleMembershipChanged = async () => {
     if (!currentUserEmail) {
@@ -1168,6 +1193,9 @@ function App() {
 
               <div className="dashboard-userbar">
                 <div className="dashboard-toolbar">
+                  <span className={`sync-status-pill ${isLiveSyncEnabled ? "sync-on" : "sync-off"}`} role="status" aria-live="polite">
+                    Live sync: {isLiveSyncEnabled ? "on" : "off"}
+                  </span>
                   <button
                     type="button"
                     className="theme-toggle"

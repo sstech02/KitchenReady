@@ -4,6 +4,8 @@
 
 A web application for restaurants and cooks to manage shift preparation, recipe scaling, and day-to-day kitchen operations.
 
+Live Link: https://kitchen-ready.vercel.app/
+
 ## Features
 
 ### 🔐 Authentication

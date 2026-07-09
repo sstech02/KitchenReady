@@ -5,14 +5,18 @@ import { getApiBaseUrl, getSessionHeaders } from "../services/sessionHeaders";
 type Props = {
   isGuestMode?: boolean;
   recipes: Recipe[];
-  onGuestRecipeUpdate?: (recipeId: string, updates: Pick<Recipe, "guideUrl" | "videoSearchUrl">) => void;
+  onGuestRecipeUpdate?: (
+    recipeId: string,
+    updates: Pick<Recipe, "guideText" | "videoSearchUrl">,
+  ) => void;
+  onGuestRecipeDelete?: (recipeId: string) => void;
   onClose: () => void;
   onRecipesChanged: () => Promise<void>;
 };
 
 type DraftRecipe = {
   name: string;
-  guideUrl: string;
+  guideText: string;
   videoSearchUrl: string;
 };
 
@@ -20,13 +24,14 @@ function AdminRecipePanel({
   isGuestMode = false,
   recipes,
   onGuestRecipeUpdate,
+  onGuestRecipeDelete,
   onClose,
   onRecipesChanged,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DraftRecipe>({
     name: "",
-    guideUrl: "",
+    guideText: "",
     videoSearchUrl: "",
   });
   const [saving, setSaving] = useState(false);
@@ -44,14 +49,55 @@ function AdminRecipePanel({
     setEditingId(recipe.id);
     setEditDraft({
       name: recipe.name,
-      guideUrl: recipe.guideUrl ?? "",
+      guideText: recipe.guideText ?? "",
       videoSearchUrl: recipe.videoSearchUrl ?? "",
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditDraft({ name: "", guideUrl: "", videoSearchUrl: "" });
+    setEditDraft({ name: "", guideText: "", videoSearchUrl: "" });
+  };
+
+  const handleDelete = async (recipe: Recipe) => {
+    setError("");
+    setMessage("");
+
+    const confirmed = window.confirm(`Delete recipe '${recipe.name}'?`);
+    if (!confirmed) {
+      return;
+    }
+
+    if (isGuestMode) {
+      onGuestRecipeDelete?.(recipe.id);
+      if (editingId === recipe.id) {
+        cancelEdit();
+      }
+      setMessage("Recipe deleted in guest mode. Changes are local and not saved.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/recipes/${recipe.id}`, {
+        method: "DELETE",
+        headers: {
+          ...getSessionHeaders(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete recipe");
+      }
+
+      if (editingId === recipe.id) {
+        cancelEdit();
+      }
+
+      setMessage(`Deleted recipe ${recipe.name}`);
+      await onRecipesChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete recipe");
+    }
   };
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
@@ -64,11 +110,11 @@ function AdminRecipePanel({
     if (isGuestMode) {
       setError("");
       onGuestRecipeUpdate?.(editingId, {
-        guideUrl: editDraft.guideUrl.trim() || undefined,
+        guideText: editDraft.guideText.trim() || undefined,
         videoSearchUrl: editDraft.videoSearchUrl.trim() || undefined,
       });
       setEditingId(null);
-      setMessage("Recipe links updated in guest mode. Changes are local and not saved.");
+      setMessage("Recipe guide updated in guest mode. Changes are local and not saved.");
       return;
     }
 
@@ -86,17 +132,17 @@ function AdminRecipePanel({
             ...getSessionHeaders(),
           },
           body: JSON.stringify({
-            guideUrl: editDraft.guideUrl.trim() || null,
+            guideText: editDraft.guideText.trim() || null,
             videoSearchUrl: editDraft.videoSearchUrl.trim() || null,
           }),
         },
       );
 
       if (!response.ok) {
-        throw new Error("Failed to update recipe links");
+        throw new Error("Failed to update recipe");
       }
 
-      setMessage(`Updated links for ${editDraft.name}`);
+      setMessage(`Updated recipe ${editDraft.name}`);
       setEditingId(null);
       await onRecipesChanged();
     } catch (err) {
@@ -117,17 +163,16 @@ function AdminRecipePanel({
         <header className="handover-header">
           <div>
             <p className="handover-eyebrow">Admin</p>
-            <h2 className="handover-title">Recipe Links</h2>
+            <h2 className="handover-title">Manage Recipes</h2>
             <p className="handover-subtitle">
-              Add guide and video URLs to recipes. These links will appear in the
-              recipe scaler when users view recipe details.
+              Edit recipes, type out the guide, and remove recipes you no longer need.
             </p>
           </div>
           <button
             type="button"
             className="handover-close"
             onClick={onClose}
-            aria-label="Close recipe links panel"
+            aria-label="Close recipe management panel"
           >
             ✕
           </button>
@@ -149,19 +194,27 @@ function AdminRecipePanel({
                     <form onSubmit={handleSave} className="admin-recipe-form">
                       <div className="admin-recipe-header">
                         <h3 className="admin-recipe-name">{editDraft.name}</h3>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(recipe)}
+                          className="admin-danger-btn"
+                          disabled={saving}
+                        >
+                          Delete
+                        </button>
                       </div>
 
                       <div className="admin-form-group">
                         <label className="admin-form-label">
-                          Guide URL
-                          <input
-                            type="url"
-                            placeholder="https://example.com/recipe-guide"
-                            value={editDraft.guideUrl}
+                          Guide
+                          <textarea
+                            rows={6}
+                            placeholder="Type the full recipe guide here"
+                            value={editDraft.guideText}
                             onChange={(e) =>
                               setEditDraft({
                                 ...editDraft,
-                                guideUrl: e.target.value,
+                                guideText: e.target.value,
                               })
                             }
                             className="admin-form-input"
@@ -209,28 +262,40 @@ function AdminRecipePanel({
                     <>
                       <div className="admin-recipe-header">
                         <h3 className="admin-recipe-name">{recipe.name}</h3>
-                        <button
-                          type="button"
-                          onClick={() => beginEdit(recipe)}
-                          className="admin-edit-btn"
-                          aria-label={`Edit links for ${recipe.name}`}
-                        >
-                          Edit
-                        </button>
+                        <div className="admin-recipe-actions">
+                          <button
+                            type="button"
+                            onClick={() => beginEdit(recipe)}
+                            className="admin-edit-btn"
+                            aria-label={`Edit recipe ${recipe.name}`}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(recipe)}
+                            className="admin-danger-btn"
+                            aria-label={`Delete recipe ${recipe.name}`}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
 
                       <div className="admin-recipe-links">
-                        {recipe.guideUrl ? (
+                        {recipe.guideText ? (
+                          <span className="admin-link-empty">Guide text saved</span>
+                        ) : recipe.guideUrl ? (
                           <a
                             href={recipe.guideUrl}
                             target="_blank"
                             rel="noreferrer"
                             className="admin-link"
                           >
-                            🔗 Guide
+                            🔗 Guide link
                           </a>
                         ) : (
-                          <span className="admin-link-empty">No guide link</span>
+                          <span className="admin-link-empty">No guide entered</span>
                         )}
 
                         {recipe.videoSearchUrl ? (
@@ -246,6 +311,12 @@ function AdminRecipePanel({
                           <span className="admin-link-empty">No video link</span>
                         )}
                       </div>
+
+                      {recipe.guideText && (
+                        <p className="admin-recipe-guide-preview" style={{ whiteSpace: "pre-wrap" }}>
+                          {recipe.guideText}
+                        </p>
+                      )}
                     </>
                   )}
                 </div>

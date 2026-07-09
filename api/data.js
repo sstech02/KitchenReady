@@ -32,6 +32,11 @@ unit: "l",
 priority: 1,
 status: "done",
 assignedTo: "Lee",
+ingredients: [
+{ id: "prep-3-ing-1", name: "Buttermilk", quantity: 2, unit: "cup" },
+{ id: "prep-3-ing-2", name: "Mayonnaise", quantity: 1, unit: "cup" },
+{ id: "prep-3-ing-3", name: "Ranch seasoning", quantity: 2, unit: "tbsp" },
+],
 },
 {
 id: "prep-4",
@@ -62,7 +67,7 @@ export const recipes = [
 id: "rec-1",
 name: "Ranch Dressing",
 category: "sauce",
-guideUrl: "https://www.allrecipes.com/recipe/16131/ranch-dressing-ii/",
+guideText: "1. Combine buttermilk, mayonnaise, and ranch seasoning until smooth.\n2. Chill for 30 minutes before service.\n3. Label, date, and hold cold until needed.",
 videoSearchUrl: "https://www.youtube.com/results?search_query=homemade+ranch+dressing+recipe",
 ingredients: [
 { id: "ing-1", name: "Buttermilk", quantity: 2, unit: "cup" },

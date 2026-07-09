@@ -57,7 +57,8 @@ function RecipeDetailView({ recipe }: RecipeDetailViewProps) {
   }
 
   const ratio = targetYield === null ? null : targetYield / recipe.yieldAmount;
-  const guideUrl = scaledRecipe.guideUrl ?? buildGuideSearchUrl(scaledRecipe.name);
+  const guideText = scaledRecipe.guideText?.trim() ?? "";
+  const guideUrl = guideText.length > 0 ? null : scaledRecipe.guideUrl ?? buildGuideSearchUrl(scaledRecipe.name);
   const videoSearchUrl = scaledRecipe.videoSearchUrl ?? buildVideoSearchUrl(scaledRecipe.name);
 
   return (
@@ -97,15 +98,26 @@ function RecipeDetailView({ recipe }: RecipeDetailViewProps) {
         <p className="recipe-scale-meta">Scale ratio: {ratio.toFixed(2)}x base batch</p>
       )}
 
+      {guideText.length > 0 ? (
+        <section className="recipe-guide-text" aria-label={`${scaledRecipe.name} recipe guide`}>
+          <h4 className="recipe-guide-title">Guide</h4>
+          <p className="recipe-guide-body" style={{ whiteSpace: "pre-wrap" }}>
+            {guideText}
+          </p>
+        </section>
+      ) : null}
+
       <div className="recipe-resource-actions" aria-label={`${scaledRecipe.name} learning resources`}>
-        <a
-          className="recipe-resource-link"
-          href={guideUrl}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Open guide
-        </a>
+        {guideUrl ? (
+          <a
+            className="recipe-resource-link"
+            href={guideUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open guide
+          </a>
+        ) : null}
 
         <a
           className="recipe-resource-link recipe-resource-link-secondary"

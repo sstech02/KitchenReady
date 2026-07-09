@@ -32,6 +32,7 @@ import {
   setStoredUserEmail,
 } from "./services/sessionHeaders";
 import { usePrepStore } from "./store/usePrepStore";
+import { mergePrepItemIngredientsIntoRecipe } from "./utils/prepRecipe";
 
 const reorderRecipeIds = (recipeIds: string[], sourceId: string, targetId: string) => {
   if (sourceId === targetId) {
@@ -210,6 +211,20 @@ function App() {
   const activeRecipe =
     orderedRecipes.find((recipe) => recipe.id === activeRecipeId) ?? orderedRecipes[0] ?? null;
 
+  const activeRecipeForScaler = useMemo(() => {
+    if (!activeRecipe) {
+      return null;
+    }
+
+    const matchingPrepItem = orderedPrepItems.find(
+      (item) =>
+        item.recipeId === activeRecipe.id ||
+        normalizeLookupValue(item.name) === normalizeLookupValue(activeRecipe.name),
+    );
+
+    return mergePrepItemIngredientsIntoRecipe(activeRecipe, matchingPrepItem);
+  }, [activeRecipe, orderedPrepItems]);
+
   const setSelectedDashboard = (dashboardId: string) => {
     setSelectedDashboardIdState(dashboardId);
     setStoredDashboardId(dashboardId || null);
@@ -319,6 +334,10 @@ function App() {
       if (currentUser?.email) {
         setStoredUserEmail(currentUser.email);
         setAdminEmail(currentUser.email);
+        setDashboards([]);
+        setRecipes([]);
+        setSelectedDashboardIdState("");
+        setStoredDashboardId(null);
       } else if (!guestSessionEmail) {
         setStoredUserEmail(null);
         setStoredDashboardId(null);
@@ -1505,7 +1524,7 @@ function App() {
                   </div>
 
                   <div className="recipe-detail-pane">
-                    <RecipeDetailView recipe={activeRecipe} />
+                    <RecipeDetailView recipe={activeRecipeForScaler} />
                   </div>
                 </div>
               </section>
@@ -1549,10 +1568,13 @@ function App() {
             setRecipes((current) =>
               current.map((recipe) =>
                 recipe.id === recipeId
-                  ? { ...recipe, guideUrl: updates.guideUrl, videoSearchUrl: updates.videoSearchUrl }
+                  ? { ...recipe, guideText: updates.guideText, videoSearchUrl: updates.videoSearchUrl }
                   : recipe,
               ),
             );
+          }}
+          onGuestRecipeDelete={(recipeId) => {
+            setRecipes((current) => current.filter((recipe) => recipe.id !== recipeId));
           }}
           onClose={() => setShowRecipePanel(false)}
           onRecipesChanged={async () => {

@@ -66,57 +66,6 @@
     "recipeId": "rec-1"
   },
   {
-    "name": "Fries",
-    "station": "Fry",
-    "parLevel": 4,
-    "onHand": 0,
-    "targetQty": 8,
-    "unit": "bag",
-    "priority": 3,
-    "status": "todo",
-    "assignedTo": "Jen",
-    "notes": "Contact second supplier",
-    "id": "4bb3c5cb-78fa-4758-b4a0-ff1f48fce269",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-4bb3c5cb-78fa-4758-b4a0-ff1f48fce269"
-  },
-  {
-    "name": "Mayo",
-    "parLevel": 0,
-    "onHand": 0,
-    "targetQty": 0,
-    "unit": "each",
-    "priority": 2,
-    "status": "todo",
-    "id": "5c2b74de-0f0d-4bac-b965-0aa98840a5da",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-5c2b74de-0f0d-4bac-b965-0aa98840a5da"
-  },
-  {
-    "name": "Item",
-    "parLevel": 0,
-    "onHand": 0,
-    "targetQty": 0,
-    "unit": "each",
-    "priority": 2,
-    "status": "todo",
-    "id": "0cc0bad7-e963-4499-8295-aa2256fd89b5",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-0cc0bad7-e963-4499-8295-aa2256fd89b5"
-  },
-  {
-    "name": "Roasted Garlic Aoli",
-    "parLevel": 0,
-    "onHand": 0,
-    "targetQty": 0,
-    "unit": "each",
-    "priority": 2,
-    "status": "todo",
-    "id": "1a43b008-6f5c-4bd3-98e0-18ed154800ec",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-1a43b008-6f5c-4bd3-98e0-18ed154800ec"
-  },
-  {
     "name": "Test",
     "parLevel": 0,
     "onHand": 0,
@@ -124,32 +73,9 @@
     "unit": "each",
     "priority": 2,
     "status": "todo",
-    "id": "16b2d462-af3c-42a9-96f9-7aab7ee25007",
+    "ingredients": [],
+    "id": "a0125204-59b3-459a-8160-aacfe61348c8",
     "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-16b2d462-af3c-42a9-96f9-7aab7ee25007"
-  },
-  {
-    "name": "Test",
-    "parLevel": 0,
-    "onHand": 0,
-    "targetQty": 0,
-    "unit": "each",
-    "priority": 2,
-    "status": "todo",
-    "id": "3a7e9853-9dfa-4653-8b1d-cbccc00fcfc9",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-3a7e9853-9dfa-4653-8b1d-cbccc00fcfc9"
-  },
-  {
-    "name": "Test",
-    "parLevel": 0,
-    "onHand": 0,
-    "targetQty": 0,
-    "unit": "each",
-    "priority": 2,
-    "status": "todo",
-    "id": "861f0038-03b2-4d97-ac40-b39c9d75c233",
-    "dashboardId": "a0dfebee-dd4f-4c51-8b84-0011ccd22b6c",
-    "recipeId": "prep-recipe-861f0038-03b2-4d97-ac40-b39c9d75c233"
+    "recipeId": "prep-recipe-a0125204-59b3-459a-8160-aacfe61348c8"
   }
 ]

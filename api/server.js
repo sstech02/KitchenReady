@@ -16,6 +16,7 @@ const dashboardsFilePath = path.join(__dirname, "dashboards.json");
 const dashboardMembershipsFilePath = path.join(__dirname, "dashboard-memberships.json");
 
 const adminApiKey = process.env.ADMIN_API_KEY?.trim() || "";
+const guestEmail = "guest@kitchenready.app";
 const roleOrder = ["viewer", "operator", "lead", "admin"];
 const roleRank = {
   viewer: 0,
@@ -103,23 +104,13 @@ const getMembership = (dashboardId, userEmail) =>
 
 const hasRoleAtLeast = (actualRole, minimumRole) => roleRank[actualRole] >= roleRank[minimumRole];
 
-const buildSeedRecipesForDashboard = (dashboardId) => {
-  const now = new Date().toISOString();
-
-  return recipes.map((recipe) => ({
-    ...recipe,
-    id: randomUUID(),
-    dashboardId,
-    createdAt: now,
-    updatedAt: now,
-    ingredients: recipe.ingredients.map((ingredient) => ({
-      ...ingredient,
-      id: randomUUID(),
-    })),
-  }));
-};
-
 const buildPrepFallbackRecipeId = (prepItemId) => `${PREP_FALLBACK_RECIPE_PREFIX}${prepItemId}`;
+
+const isValidPrepIngredient = (ingredient) =>
+  isObject(ingredient) &&
+  typeof ingredient.name === "string" &&
+  typeof ingredient.quantity === "number" &&
+  typeof ingredient.unit === "string";
 
 const upsertFallbackRecipeForPrepItem = (prepItem, dashboardId) => {
   const fallbackId = buildPrepFallbackRecipeId(prepItem.id);
@@ -131,19 +122,27 @@ const upsertFallbackRecipeForPrepItem = (prepItem, dashboardId) => {
     1,
   );
 
+  const fallbackIngredients =
+    Array.isArray(prepItem.ingredients) && prepItem.ingredients.length > 0
+      ? prepItem.ingredients.map((ingredient, index) => ({
+          ...ingredient,
+          id: ingredient.id || `${fallbackId}-ingredient-${index + 1}`,
+        }))
+      : [
+          {
+            id: `${fallbackId}-ingredient`,
+            name: prepItem.name,
+            quantity: baseYieldAmount,
+            unit: prepItem.unit,
+          },
+        ];
+
   const fallbackRecipe = {
     id: fallbackId,
     dashboardId,
     name: prepItem.name,
     category: prepItem.station || "Prep",
-    ingredients: [
-      {
-        id: `${fallbackId}-ingredient`,
-        name: prepItem.name,
-        quantity: baseYieldAmount,
-        unit: prepItem.unit,
-      },
-    ],
+    ingredients: fallbackIngredients,
     steps: ["Prep item quantity scales from target yield."],
     yieldAmount: baseYieldAmount,
     yieldUnit: prepItem.unit,
@@ -408,16 +407,6 @@ const loadDomainStores = async () => {
     dashboardId: recipe.dashboardId || defaultDashboardId,
   }));
 
-  const dashboardIdsMissingRecipes = dashboardsStore
-    .map((dashboard) => dashboard.id)
-    .filter((dashboardId) => !recipesStore.some((recipe) => recipe.dashboardId === dashboardId));
-
-  if (dashboardIdsMissingRecipes.length > 0) {
-    recipesStore.push(
-      ...dashboardIdsMissingRecipes.flatMap((dashboardId) => buildSeedRecipesForDashboard(dashboardId)),
-    );
-  }
-
   handoversStore = handoversStore.map((handover) => ({
     ...handover,
     dashboardId: handover.dashboardId || defaultDashboardId,
@@ -502,7 +491,8 @@ const isValidPrepItem = (item) =>
   typeof item.targetQty === "number" &&
   typeof item.unit === "string" &&
   [1, 2, 3].includes(item.priority) &&
-  typeof item.status === "string";
+  typeof item.status === "string" &&
+  (item.ingredients === undefined || (Array.isArray(item.ingredients) && item.ingredients.every(isValidPrepIngredient)));
 
 const isValidRecipe = (recipe) =>
   isObject(recipe) &&
@@ -590,7 +580,7 @@ app.get("/api/dashboards", requireUserEmail, (req, res) => {
   const userMemberships = dashboardMembershipsStore
     .filter((membership) => membership.userEmail === req.userEmail);
 
-  if (userMemberships.length === 0 && defaultDashboardId) {
+  if (req.userEmail === guestEmail && userMemberships.length === 0 && defaultDashboardId) {
     const now = new Date().toISOString();
     const seededMembership = {
       id: randomUUID(),
@@ -657,7 +647,6 @@ app.post("/api/dashboards", requireUserEmail, async (req, res) => {
 
   dashboardsStore.push(dashboard);
   dashboardMembershipsStore.push(adminMembership);
-  recipesStore.push(...buildSeedRecipesForDashboard(dashboard.id));
 
   if (req.userEmail !== adminEmail) {
     dashboardMembershipsStore.push({

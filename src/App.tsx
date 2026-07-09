@@ -216,13 +216,9 @@ function App() {
       return null;
     }
 
-    const matchingPrepItem = orderedPrepItems.find(
-      (item) =>
-        item.recipeId === activeRecipe.id ||
-        normalizeLookupValue(item.name) === normalizeLookupValue(activeRecipe.name),
-    );
+    const matchingPrepItems = orderedPrepItems.filter((item) => item.recipeId === activeRecipe.id);
 
-    return mergePrepItemIngredientsIntoRecipe(activeRecipe, matchingPrepItem);
+    return mergePrepItemIngredientsIntoRecipe(activeRecipe, matchingPrepItems);
   }, [activeRecipe, orderedPrepItems]);
 
   const setSelectedDashboard = (dashboardId: string) => {

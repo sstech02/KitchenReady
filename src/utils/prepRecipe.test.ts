@@ -15,7 +15,7 @@ const buildRecipe = (): Recipe => ({
 });
 
 describe("mergePrepItemIngredientsIntoRecipe", () => {
-  test("appends prep item ingredients to the recipe", () => {
+  test("appends linked prep item ingredients to the recipe", () => {
     const recipe = buildRecipe();
     const prepItem: PrepItem = {
       id: "prep-1",
@@ -29,7 +29,7 @@ describe("mergePrepItemIngredientsIntoRecipe", () => {
       ingredients: [{ id: "prep-ing-1", name: "Mayonnaise", quantity: 1, unit: "cup" }],
     };
 
-    const merged = mergePrepItemIngredientsIntoRecipe(recipe, prepItem);
+    const merged = mergePrepItemIngredientsIntoRecipe(recipe, [prepItem]);
 
     expect(merged.ingredients).toHaveLength(2);
     expect(merged.ingredients[1]).toMatchObject({
@@ -44,6 +44,34 @@ describe("mergePrepItemIngredientsIntoRecipe", () => {
   test("returns the original recipe when no prep ingredients are present", () => {
     const recipe = buildRecipe();
 
-    expect(mergePrepItemIngredientsIntoRecipe(recipe, undefined)).toBe(recipe);
+    expect(mergePrepItemIngredientsIntoRecipe(recipe, [])).toBe(recipe);
+  });
+
+  test("does not append duplicate ingredients already on the recipe", () => {
+    const recipe = buildRecipe();
+    const prepItem: PrepItem = {
+      id: "prep-1",
+      name: "Ranch Dressing",
+      parLevel: 4,
+      onHand: 4,
+      targetQty: 4,
+      unit: "l",
+      priority: 1,
+      status: "todo",
+      ingredients: [
+        { id: "dup-ing", name: "Buttermilk", quantity: 2, unit: "cup" },
+        { id: "new-ing", name: "Dill", quantity: 1, unit: "tbsp" },
+      ],
+    };
+
+    const merged = mergePrepItemIngredientsIntoRecipe(recipe, [prepItem]);
+
+    expect(merged.ingredients).toHaveLength(2);
+    expect(merged.ingredients[1]).toMatchObject({
+      id: "new-ing",
+      name: "Dill",
+      quantity: 1,
+      unit: "tbsp",
+    });
   });
 });

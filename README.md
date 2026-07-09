@@ -1,3 +1,4 @@
+
 # KitchenReady
 
 [![CI](https://github.com/sstech02/KitchenReady/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sstech02/KitchenReady/actions/workflows/ci.yml)
@@ -10,6 +11,16 @@ Live Link: https://kitchen-ready.vercel.app/
 
 ## Screenshots
 
+![KitchenReady hero](src/assets/hero.png)
+
+### Prep Dashboard
+![Prep dashboard example](src/assets/prep_dashboard_example.png)
+
+### Recipe Scaler
+![Recipe scaler example](src/assets/recipe_scaler_example.png)
+
+### Shift Handover
+![Shift handover example](src/assets/shift_handover_example.png)
 
 ## Features
 

@@ -2,9 +2,14 @@
 
 [![CI](https://github.com/sstech02/KitchenReady/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sstech02/KitchenReady/actions/workflows/ci.yml)
 
-A web application for restaurants and cooks to manage shift preparation, recipe scaling, and day-to-day kitchen operations.
+You arrive for a kitchen shift with a clipboard full of half-finished prep notes, scattered handover details, and a scramble to figure out what is done, what still needs attention, and what should happen next. KitchenReady was built to replace that friction with a single place for prep tracking, recipe scaling, shift handovers, and team coordination.
+
+Instead of digging through paper lists and matching recipes by memory, KitchenReady helps restaurants keep prep organized, hand off shifts clearly, scale recipes accurately, and manage who can do what across each dashboard.
 
 Live Link: https://kitchen-ready.vercel.app/
+
+## Screenshots
+
 
 ## Features
 

@@ -1,3 +1,4 @@
+import type { Ingredient } from "./Ingredient";
 import type { Unit } from "./Unit";
 import type { PrepStatus } from "./PrepStatus";
 
@@ -16,4 +17,5 @@ export interface PrepItem {
   assignedTo?: string;     // user id or name
   notes?: string;
   completedAt?: string;    // ISO date-time
+  ingredients?: Ingredient[];
 }

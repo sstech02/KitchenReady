@@ -1,4 +1,5 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
+import type { Ingredient } from "../models/Ingredient";
 import type { PrepItem } from "../models/PrepItem";
 import { PREP_STATUSES } from "../models/PrepStatus";
 import { UNITS } from "../models/Unit";
@@ -13,6 +14,8 @@ type Props = {
   onItemsChanged: () => Promise<void>;
 };
 
+type DraftIngredient = Ingredient;
+
 type DraftItem = {
   name: string;
   station: string;
@@ -24,7 +27,15 @@ type DraftItem = {
   status: PrepItem["status"];
   assignedTo: string;
   notes: string;
+  ingredients: DraftIngredient[];
 };
+
+const createIngredientDraft = (ingredient?: Partial<DraftIngredient>): DraftIngredient => ({
+  id: ingredient?.id ?? crypto.randomUUID(),
+  name: ingredient?.name ?? "",
+  quantity: typeof ingredient?.quantity === "number" ? ingredient.quantity : 0,
+  unit: ingredient?.unit ?? "each",
+});
 
 const emptyDraft: DraftItem = {
   name: "",
@@ -37,7 +48,18 @@ const emptyDraft: DraftItem = {
   status: "todo",
   assignedTo: "",
   notes: "",
+  ingredients: [],
 };
+
+const normalizeIngredientPayload = (ingredients: DraftIngredient[]): Ingredient[] =>
+  ingredients
+    .filter((ingredient) => ingredient.name.trim().length > 0)
+    .map((ingredient) => ({
+      id: ingredient.id,
+      name: ingredient.name.trim(),
+      quantity: Math.max(0, Number(ingredient.quantity) || 0),
+      unit: ingredient.unit,
+    }));
 
 const toPayload = (draft: DraftItem): Omit<PrepItem, "id"> => ({
   name: draft.name.trim(),
@@ -50,6 +72,7 @@ const toPayload = (draft: DraftItem): Omit<PrepItem, "id"> => ({
   status: draft.status,
   assignedTo: draft.assignedTo.trim() || undefined,
   notes: draft.notes.trim() || undefined,
+  ingredients: normalizeIngredientPayload(draft.ingredients),
 });
 
 function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onItemsChanged }: Props) {
@@ -86,6 +109,12 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
       status: item.status,
       assignedTo: item.assignedTo ?? "",
       notes: item.notes ?? "",
+      ingredients: (item.ingredients ?? []).map((ingredient) => ({
+        id: ingredient.id,
+        name: ingredient.name,
+        quantity: ingredient.quantity,
+        unit: ingredient.unit,
+      })),
     });
   };
 
@@ -93,6 +122,109 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
     setEditingId(null);
     setEditDraft(emptyDraft);
   };
+
+  const addIngredient = (setter: Dispatch<SetStateAction<DraftItem>>) => {
+    setter((prev) => ({
+      ...prev,
+      ingredients: [...prev.ingredients, createIngredientDraft()],
+    }));
+  };
+
+  const updateIngredient = (
+    setter: Dispatch<SetStateAction<DraftItem>>,
+    id: string,
+    updates: Partial<DraftIngredient>,
+  ) => {
+    setter((prev) => ({
+      ...prev,
+      ingredients: prev.ingredients.map((ingredient) =>
+        ingredient.id === id ? { ...ingredient, ...updates } : ingredient,
+      ),
+    }));
+  };
+
+  const removeIngredient = (setter: Dispatch<SetStateAction<DraftItem>>, id: string) => {
+    setter((prev) => ({
+      ...prev,
+      ingredients: prev.ingredients.filter((ingredient) => ingredient.id !== id),
+    }));
+  };
+
+  const renderIngredientEditor = (
+    ingredients: DraftIngredient[],
+    setter: Dispatch<SetStateAction<DraftItem>>,
+    emptyMessage: string,
+  ) => (
+    <div className="admin-field admin-field-wide">
+      <span>Ingredients</span>
+      <p className="admin-help-text">{emptyMessage}</p>
+
+      <div className="admin-ingredient-list">
+        {ingredients.length === 0 ? (
+          <p className="admin-state-msg">No extra ingredients added.</p>
+        ) : (
+          ingredients.map((ingredient, index) => (
+            <div key={ingredient.id} className="admin-ingredient-row">
+              <label className="admin-field">
+                <span>Ingredient {index + 1}</span>
+                <input
+                  type="text"
+                  value={ingredient.name}
+                  onChange={(event) =>
+                    updateIngredient(setter, ingredient.id, { name: event.target.value })
+                  }
+                  placeholder="Mayonnaise"
+                />
+              </label>
+
+              <label className="admin-field">
+                <span>Qty</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={ingredient.quantity}
+                  onChange={(event) =>
+                    updateIngredient(setter, ingredient.id, { quantity: Number(event.target.value) })
+                  }
+                />
+              </label>
+
+              <label className="admin-field">
+                <span>Unit</span>
+                <select
+                  value={ingredient.unit}
+                  onChange={(event) =>
+                    updateIngredient(setter, ingredient.id, {
+                      unit: event.target.value as PrepItem["unit"],
+                    })
+                  }
+                >
+                  {UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="admin-secondary-btn"
+                onClick={() => removeIngredient(setter, ingredient.id)}
+              >
+                Remove
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <button type="button" className="admin-secondary-btn" onClick={() => addIngredient(setter)}>
+        Add Ingredient
+      </button>
+    </div>
+  );
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -393,6 +525,12 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
                 />
               </label>
 
+              {renderIngredientEditor(
+                newItem.ingredients,
+                setNewItem,
+                "Add ingredient lines that should appear in the recipe scaler.",
+              )}
+
               <div className="admin-actions admin-field-wide">
                 <button type="submit" className="admin-primary-btn" disabled={isBusy}>
                   {creating ? "Adding..." : "Add Prep Item"}
@@ -420,6 +558,12 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
                       status: item.status,
                       assignedTo: item.assignedTo ?? "",
                       notes: item.notes ?? "",
+                      ingredients: (item.ingredients ?? []).map((ingredient) => ({
+                        id: ingredient.id,
+                        name: ingredient.name,
+                        quantity: ingredient.quantity,
+                        unit: ingredient.unit,
+                      })),
                     };
 
                 return (
@@ -578,6 +722,12 @@ function AdminPrepPanel({ adminEmail, isGuestMode = false, items, onClose, onIte
                           disabled={!isEditing}
                         />
                       </label>
+
+                      {isEditing && renderIngredientEditor(
+                        draft.ingredients,
+                        setEditDraft,
+                        "Edit the ingredient lines that should also appear in the recipe scaler.",
+                      )}
                     </div>
 
                     <div className="admin-actions">

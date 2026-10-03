@@ -4,7 +4,9 @@ services:
     env: node
     plan: free
     buildCommand: npm install
-    startCommand: npm run start
+    startCommand: npm run api
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DATABASE_URL
+        sync: false

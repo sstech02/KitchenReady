@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
-import { handovers, prepItems, recipes } from "./data.js";
+import { handovers, recipes } from "./data.js";
+import { pool, prepRepository } from "./database.js";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -10,7 +11,6 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const prepItemsFilePath = path.join(__dirname, "prep-items.json");
 const adminAccountsFilePath = path.join(__dirname, "admin-accounts.json");
 const dashboardsFilePath = path.join(__dirname, "dashboards.json");
 const dashboardMembershipsFilePath = path.join(__dirname, "dashboard-memberships.json");
@@ -25,13 +25,50 @@ const roleRank = {
   admin: 3,
 };
 
-let prepItemsStore = [];
 let adminAccountsStore = new Set();
 let dashboardsStore = [];
 let dashboardMembershipsStore = [];
 let recipesStore = [];
 let handoversStore = [];
 let defaultDashboardId = "";
+const prepStreams = new Set();
+let prepNotificationClient = null;
+
+const listenForPrepChanges = async () => {
+  let client;
+  try {
+    client = await pool.connect();
+    prepNotificationClient = client;
+    const disconnected = () => {
+      if (prepNotificationClient !== client) return;
+      prepNotificationClient = null;
+      client.release(true);
+      prepStreams.forEach((stream) => stream.response.end());
+      setTimeout(() => void listenForPrepChanges(), 2000).unref();
+    };
+    client.on("error", disconnected);
+    client.on("end", disconnected);
+    client.on("notification", (notification) => {
+      if (notification.channel !== "kitchenready_prep_changed") return;
+      prepStreams.forEach((stream) => {
+        if (stream.dashboardId !== notification.payload) return;
+        if (!getMembership(stream.dashboardId, stream.userEmail)) {
+          stream.response.end();
+          return;
+        }
+        stream.response.write("event: prep-items-changed\ndata: {}\n\n");
+      });
+    });
+    await client.query("LISTEN kitchenready_prep_changed");
+  } catch {
+    if (client && prepNotificationClient !== client) return;
+    if (prepNotificationClient === client) {
+      prepNotificationClient = null;
+      client?.release(true);
+    }
+    setTimeout(() => void listenForPrepChanges(), 2000).unref();
+  }
+};
 
 const normalizeEmail = (value) => value.trim().toLowerCase();
 const isValidEmail = (value) => /.+@.+\..+/.test(value);
@@ -227,10 +264,6 @@ const resolveRecipeIdForPrepItem = (prepItem, dashboardId) => {
   return upsertFallbackRecipeForPrepItem(prepItem, dashboardId);
 };
 
-const persistPrepItems = async () => {
-  await writeFile(prepItemsFilePath, JSON.stringify(prepItemsStore, null, 2), "utf-8");
-};
-
 const persistAdminAccounts = async () => {
   await writeFile(
     adminAccountsFilePath,
@@ -297,20 +330,6 @@ const ensureAdminMembershipSeed = async () => {
   });
 
   await persistMemberships();
-};
-
-const loadPrepItems = async () => {
-  try {
-    const raw = await readFile(prepItemsFilePath, "utf-8");
-    prepItemsStore = parseJsonArray(raw, "prep-items.json must contain an array");
-  } catch (error) {
-    if (error && error.code !== "ENOENT") {
-      console.warn("Failed to read prep-items.json, using seed data:", error);
-    }
-
-    prepItemsStore = [...prepItems];
-    await persistPrepItems();
-  }
 };
 
 const loadAdminAccounts = async () => {
@@ -383,24 +402,9 @@ const loadDomainStores = async () => {
   recipesStore = recipes.map((recipe) => ({ ...recipe }));
   handoversStore = handovers.map((handover) => ({ ...handover }));
 
-  await loadPrepItems();
   await loadAdminAccounts();
   await loadDashboards();
   await loadMemberships();
-
-  let prepTouched = false;
-  prepItemsStore = prepItemsStore.map((item) => {
-    if (item.dashboardId) {
-      return item;
-    }
-
-    prepTouched = true;
-    return { ...item, dashboardId: defaultDashboardId };
-  });
-
-  if (prepTouched) {
-    await persistPrepItems();
-  }
 
   recipesStore = recipesStore.map((recipe) => ({
     ...recipe,
@@ -412,19 +416,12 @@ const loadDomainStores = async () => {
     dashboardId: handover.dashboardId || defaultDashboardId,
   }));
 
-  let prepRecipeIdsTouched = false;
-  prepItemsStore = prepItemsStore.map((item) => {
-    const resolvedRecipeId = resolveRecipeIdForPrepItem(item, item.dashboardId || defaultDashboardId);
-    if (resolvedRecipeId === item.recipeId) {
-      return item;
+  const storedPrepItems = await prepRepository.listAll();
+  for (const item of storedPrepItems) {
+    const recipeId = resolveRecipeIdForPrepItem(item, item.dashboardId);
+    if (recipeId !== item.recipeId) {
+      await prepRepository.update({ ...item, recipeId });
     }
-
-    prepRecipeIdsTouched = true;
-    return { ...item, recipeId: resolvedRecipeId };
-  });
-
-  if (prepRecipeIdsTouched) {
-    await persistPrepItems();
   }
 };
 
@@ -518,6 +515,7 @@ const adminCountForDashboard = (dashboardId) =>
   ).length;
 
 await loadDomainStores();
+await listenForPrepChanges();
 
 // CORS configuration for development and production
 const allowedOrigins = [
@@ -676,23 +674,20 @@ app.delete("/api/dashboards/:id", requireUserEmail, requireDashboardContext, req
 
   const prevDashboards = [...dashboardsStore];
   const prevMemberships = [...dashboardMembershipsStore];
-  const prevPrepItems = [...prepItemsStore];
   const prevHandovers = [...handoversStore];
 
   dashboardsStore = dashboardsStore.filter((item) => item.id !== id);
   dashboardMembershipsStore = dashboardMembershipsStore.filter((item) => item.dashboardId !== id);
-  prepItemsStore = prepItemsStore.filter((item) => item.dashboardId !== id);
   handoversStore = handoversStore.filter((item) => item.dashboardId !== id);
 
   try {
     await persistDashboards();
     await persistMemberships();
-    await persistPrepItems();
+    await prepRepository.removeDashboard(id);
     return res.status(200).json({ deleted: id });
   } catch {
     dashboardsStore = prevDashboards;
     dashboardMembershipsStore = prevMemberships;
-    prepItemsStore = prevPrepItems;
     handoversStore = prevHandovers;
     return res.status(500).json({ error: "Failed to delete dashboard" });
   }
@@ -811,8 +806,35 @@ app.delete("/api/dashboards/:id/members/:memberId", requireUserEmail, requireDas
   }
 });
 
-app.get("/api/prep-items", requireUserEmail, requireDashboardContext, (_req, res) => {
-  const items = prepItemsStore.filter((item) => item.dashboardId === _req.dashboardId);
+app.get("/api/prep-items/events", requireUserEmail, requireDashboardContext, (req, res) => {
+  if (!prepNotificationClient) {
+    return res.status(503).json({ error: "Live prep updates are reconnecting" });
+  }
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+  const stream = { dashboardId: req.dashboardId, userEmail: req.userEmail, response: res };
+  prepStreams.add(stream);
+  res.write("event: prep-items-changed\ndata: {}\n\n");
+  const heartbeat = setInterval(() => {
+    if (!getMembership(stream.dashboardId, stream.userEmail) || !dashboardsStore.some((dashboard) => dashboard.id === stream.dashboardId)) {
+      res.end();
+      return;
+    }
+    res.write(": heartbeat\n\n");
+  }, 15000);
+  res.on("close", () => {
+    clearInterval(heartbeat);
+    prepStreams.delete(stream);
+  });
+});
+
+app.get("/api/prep-items", requireUserEmail, requireDashboardContext, async (req, res) => {
+  const items = await prepRepository.list(req.dashboardId);
   res.json(items);
 });
 
@@ -873,7 +895,7 @@ app.delete("/api/admin/accounts/:email", requireAdminApiKey, async (req, res) =>
   }
 });
 
-app.post("/api/prep-items", requireUserEmail, requireDashboardContext, requireRole("admin"), (req, res) => {
+app.post("/api/prep-items", requireUserEmail, requireDashboardContext, requireRole("admin"), async (req, res) => {
   const payload = req.body;
   if (!isValidPrepItem(payload)) {
     return res.status(400).json({ error: "Invalid prep item payload" });
@@ -889,10 +911,15 @@ app.post("/api/prep-items", requireUserEmail, requireDashboardContext, requireRo
     recipeId,
   };
 
-  prepItemsStore.push(newItem);
-  return persistPrepItems()
-    .then(() => res.status(201).json(newItem))
-    .catch(() => res.status(500).json({ error: "Failed to persist prep items" }));
+  try {
+    const savedItem = await prepRepository.create(newItem);
+    return res.status(201).json(savedItem);
+  } catch (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({ error: "Prep item already exists" });
+    }
+    return res.status(500).json({ error: "Failed to persist prep items" });
+  }
 });
 
 app.post("/api/recipes", requireUserEmail, requireDashboardContext, requireRole("admin"), (req, res) => {
@@ -933,7 +960,7 @@ app.post("/api/handovers", requireUserEmail, requireDashboardContext, requireRol
   return res.status(201).json(newHandover);
 });
 
-app.put("/api/prep-items/:id", requireUserEmail, requireDashboardContext, requireRole("operator"), (req, res) => {
+app.put("/api/prep-items/:id", requireUserEmail, requireDashboardContext, requireRole("operator"), async (req, res) => {
   const { id } = req.params;
   const payload = req.body;
 
@@ -941,8 +968,7 @@ app.put("/api/prep-items/:id", requireUserEmail, requireDashboardContext, requir
     return res.status(400).json({ error: "Invalid prep item payload" });
   }
 
-  const idx = prepItemsStore.findIndex((item) => item.id === id && item.dashboardId === req.dashboardId);
-  if (idx === -1) {
+  if (!await prepRepository.find(req.dashboardId, id)) {
     return res.status(404).json({ error: "Prep item not found" });
   }
 
@@ -950,24 +976,24 @@ app.put("/api/prep-items/:id", requireUserEmail, requireDashboardContext, requir
   const recipeId = resolveRecipeIdForPrepItem(resolvedPayload, req.dashboardId);
 
   const updated = { ...resolvedPayload, dashboardId: req.dashboardId, recipeId };
-  prepItemsStore[idx] = updated;
-  return persistPrepItems()
-    .then(() => res.json(updated))
-    .catch(() => res.status(500).json({ error: "Failed to persist prep items" }));
+  try {
+    const savedItem = await prepRepository.update(updated);
+    if (!savedItem) return res.status(404).json({ error: "Prep item not found" });
+    return res.json(savedItem);
+  } catch {
+    return res.status(500).json({ error: "Failed to persist prep items" });
+  }
 });
 
-app.delete("/api/prep-items/:id", requireUserEmail, requireDashboardContext, requireRole("admin"), (req, res) => {
+app.delete("/api/prep-items/:id", requireUserEmail, requireDashboardContext, requireRole("admin"), async (req, res) => {
   const { id } = req.params;
-  const idx = prepItemsStore.findIndex((item) => item.id === id && item.dashboardId === req.dashboardId);
-
-  if (idx === -1) {
-    return res.status(404).json({ error: "Prep item not found" });
+  try {
+    const removed = await prepRepository.remove(req.dashboardId, id);
+    if (!removed) return res.status(404).json({ error: "Prep item not found" });
+    return res.status(204).send();
+  } catch {
+    return res.status(500).json({ error: "Failed to persist prep items" });
   }
-
-  prepItemsStore.splice(idx, 1);
-  return persistPrepItems()
-    .then(() => res.status(204).send())
-    .catch(() => res.status(500).json({ error: "Failed to persist prep items" }));
 });
 
 app.put("/api/recipes/:id", requireUserEmail, requireDashboardContext, requireRole("admin"), (req, res) => {
@@ -1029,6 +1055,10 @@ app.delete("/api/handovers/:id", requireUserEmail, requireDashboardContext, requ
 
   handoversStore.splice(idx, 1);
   return res.status(204).send();
+});
+
+app.use((_error, _req, res, _next) => {
+  res.status(500).json({ error: "Internal server error" });
 });
 
 app.listen(PORT, () => {

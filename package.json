@@ -10,14 +10,19 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "api": "node api/server.js",
+    "db:migrate": "node api/migratePrepItems.js",
+    "test:api": "node --test --test-concurrency=1 api/prepRepository.test.js api/server.test.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@microsoft/fetch-event-source": "^2.0.1",
     "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
     "express": "^5.2.1",
     "firebase": "^12.14.0",
     "lottie-react": "^2.4.1",
+    "pg": "^8.23.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "zustand": "^5.0.14"

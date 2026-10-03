@@ -1,42 +1,18 @@
 import { create } from "zustand";
-import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from "firebase/firestore";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 import type { PrepItem } from "../models/PrepItem";
-import { db } from "../services/firebase";
 import { getApiBaseUrl, getSessionHeaders, getStoredDashboardId, getStoredUserEmail } from "../services/sessionHeaders";
 
 const guestEmail = "guest@kitchenready.app";
 const isGuestMode = () => getStoredUserEmail() === guestEmail;
-const pendingDeletedIds = new Set<string>();
+let itemsRevision = 0;
+let pendingWrites = 0;
+const refreshSubscribers = new Set<() => void>();
 
 type PrepItemSyncCallbacks = {
   onInitialSnapshot?: () => void;
+  onConnectionChange?: (connected: boolean) => void;
   onError?: (error: unknown) => void;
-};
-
-const prepItemsCollectionName = "prep-items";
-
-export const syncPrepItemToFirestore = async (item: PrepItem): Promise<void> => {
-  if (!db) {
-    return;
-  }
-
-  const dashboardId = getStoredDashboardId();
-  if (!dashboardId) {
-    return;
-  }
-
-  await setDoc(doc(db, prepItemsCollectionName, item.id), {
-    ...item,
-    dashboardId,
-  });
-};
-
-export const deletePrepItemFromFirestore = async (id: string): Promise<void> => {
-  if (!db) {
-    return;
-  }
-
-  await deleteDoc(doc(db, prepItemsCollectionName, id));
 };
 
 type PrepStore = {
@@ -61,6 +37,8 @@ const persistUpdatedItem = async (
   set: (partial: Partial<PrepStore> | ((state: PrepStore) => Partial<PrepStore>)) => void,
   errorMessage: string,
 ) => {
+  const dashboardId = getStoredDashboardId();
+  itemsRevision += 1;
   set((state) => ({
     items: state.items.map((item) => (item.id === id ? updatedItem : item)),
   }));
@@ -69,6 +47,7 @@ const persistUpdatedItem = async (
     return;
   }
 
+  pendingWrites += 1;
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/prep-items/${id}`, {
       method: "PUT",
@@ -81,16 +60,21 @@ const persistUpdatedItem = async (
     }
 
     const savedItem = (await res.json()) as PrepItem;
+    if (getStoredDashboardId() !== dashboardId) return;
     set((state) => ({
       items: state.items.map((item) => (item.id === id ? savedItem : item)),
     }));
-
-    void syncPrepItemToFirestore(savedItem).catch((syncError) => {
-      console.error("Failed to mirror prep item update to Firestore:", syncError);
-    });
   } catch (error) {
-    set({ items: previousItems });
+    if (getStoredDashboardId() === dashboardId) {
+      set((state) => ({
+        items: state.items.map((item) => item.id === id ? previousItems.find((previous) => previous.id === id) ?? item : item),
+      }));
+    }
     throw error;
+  } finally {
+    itemsRevision += 1;
+    pendingWrites -= 1;
+    refreshSubscribers.forEach((refresh) => refresh());
   }
 };
 
@@ -99,6 +83,8 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
 
   fetchItems: async () => {
     const dashboardId = getStoredDashboardId();
+    const userEmail = getStoredUserEmail();
+    const revision = itemsRevision;
     if (!dashboardId) {
       set({ items: [] });
       return;
@@ -109,11 +95,8 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
     });
     if (!res.ok) throw new Error("Failed to fetch prep items");
     const items = (await res.json()) as PrepItem[];
-    pendingDeletedIds.forEach((id) => {
-      if (!items.some((item) => item.id === id)) {
-        pendingDeletedIds.delete(id);
-      }
-    });
+    if (getStoredDashboardId() !== dashboardId || getStoredUserEmail() !== userEmail) return;
+    if (itemsRevision !== revision || pendingWrites > 0) return;
     set({ items });
   },
 
@@ -124,95 +107,71 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
       return () => undefined;
     }
 
-    if (!db) {
-      void get()
-        .fetchItems()
-        .then(() => callbacks?.onInitialSnapshot?.())
-        .catch((error) => {
-          callbacks?.onError?.(error);
-          callbacks?.onInitialSnapshot?.();
-        });
-
-      return () => undefined;
-    }
-
-    const prepItemsQuery = query(
-      collection(db, prepItemsCollectionName),
-      where("dashboardId", "==", dashboardId),
-    );
-    let initialSnapshotHandled = false;
-    let backfillAttempted = false;
-    const markInitialSnapshotHandled = () => {
-      if (!initialSnapshotHandled) {
-        initialSnapshotHandled = true;
-        callbacks?.onInitialSnapshot?.();
+    let active = true;
+    const controller = new AbortController();
+    let refreshing = false;
+    let refreshRequested = false;
+    const refresh = async () => {
+      if (!active || getStoredDashboardId() !== dashboardId) return;
+      refreshRequested = true;
+      if (refreshing || pendingWrites > 0) return;
+      refreshing = true;
+      try {
+        while (active && refreshRequested) {
+          refreshRequested = false;
+          await get().fetchItems();
+        }
+      } catch (error) {
+        if (active) callbacks?.onError?.(error);
+      } finally {
+        refreshing = false;
       }
     };
-
-    // Load API data immediately so prep cards render while Firestore connects.
     void get()
       .fetchItems()
       .then(() => {
-        markInitialSnapshotHandled();
+        if (active) callbacks?.onInitialSnapshot?.();
       })
       .catch((error) => {
-        callbacks?.onError?.(error);
-        markInitialSnapshotHandled();
-      });
-
-    return onSnapshot(
-      prepItemsQuery,
-      (snapshot) => {
-        const currentItems = get().items;
-        const nextItems = snapshot.docs
-          .map((snapshotDoc) => snapshotDoc.data() as PrepItem)
-          .filter((item) => !pendingDeletedIds.has(item.id));
-
-        if (nextItems.length === 0) {
-          const apiItems = currentItems;
-
-          if (!backfillAttempted && apiItems.length > 0) {
-            backfillAttempted = true;
-            void Promise.all(
-              apiItems.map((item) =>
-                syncPrepItemToFirestore(item).catch((syncError) => {
-                  console.error("Failed to backfill prep item to Firestore:", syncError);
-                }),
-              ),
-            );
-          }
-
-          // Keep current UI stable when Firestore snapshot is empty and reconcile from API.
-          void get().fetchItems().catch((error) => {
-            callbacks?.onError?.(error);
-          });
-
-          markInitialSnapshotHandled();
-          return;
-        }
-
-        const nextItemIds = new Set(nextItems.map((item) => item.id));
-        const looksLikePartialSnapshot =
-          currentItems.length > 0
-          && currentItems.some((item) => !nextItemIds.has(item.id) && !pendingDeletedIds.has(item.id));
-
-        if (!looksLikePartialSnapshot) {
-          set({ items: nextItems });
-        }
-
-        // Always reconcile with API so Firestore glitches do not cause card flicker.
-        void get().fetchItems().catch((error) => {
+        if (active) {
           callbacks?.onError?.(error);
-        });
-
-        markInitialSnapshotHandled();
-      },
-      (error) => {
-        console.error("Failed to subscribe to prep items:", error);
-        markInitialSnapshotHandled();
-        callbacks?.onError?.(error);
-      },
-    );
+          callbacks?.onInitialSnapshot?.();
+        }
+      });
+    if (!isGuestMode()) {
+      refreshSubscribers.add(refresh);
+      let rejected = false;
+      void fetchEventSource(`${getApiBaseUrl()}/api/prep-items/events`, {
+        headers: getSessionHeaders(),
+        signal: controller.signal,
+        async onopen(response) {
+          rejected = response.status >= 400 && response.status < 500;
+          if (!response.ok || !response.headers.get("content-type")?.includes("text/event-stream")) {
+            throw new Error("Failed to connect to live prep updates");
+          }
+          if (active) callbacks?.onConnectionChange?.(true);
+          await refresh();
+        },
+        onmessage(message) {
+          if (message.event === "prep-items-changed") void refresh();
+        },
+        onclose() {
+          if (active) callbacks?.onConnectionChange?.(false);
+          throw new Error("Live prep connection closed");
+        },
+        onerror(error) {
+          if (active) callbacks?.onConnectionChange?.(false);
+          if (active) callbacks?.onError?.(error);
+          if (rejected) throw error;
+          return 2000;
+        },
+      }).catch(() => undefined);
+    }
+    return () => {
+      active = false;
+      controller.abort();
+      refreshSubscribers.delete(refresh);
+    };
   },
 
   setStatus: async (id, status) => {
@@ -227,12 +186,14 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
     await persistUpdatedItem(id, updatedItem, previousItems, set, "Failed to persist prep item status");
   },
 
-  assignTo: (id, assignee) =>
+  assignTo: (id, assignee) => {
+    itemsRevision += 1;
     set((state) => ({
       items: state.items.map((item) =>
         item.id === id ? { ...item, assignedTo: assignee } : item,
       ),
-    })),
+    }));
+  },
 
   setOnHand: async (id, onHand) => {
     const previousItems = get().items;
@@ -302,22 +263,24 @@ export const usePrepStore = create<PrepStore>((set, get) => ({
     await persistUpdatedItem(id, updatedItem, previousItems, set, "Failed to persist prep item priority");
   },
 
-  addItem: (item) =>
+  addItem: (item) => {
+    itemsRevision += 1;
     set((state) => ({
       items: [...state.items, item],
-    })),
+    }));
+  },
 
-  updateItemLocal: (id, item) =>
+  updateItemLocal: (id, item) => {
+    itemsRevision += 1;
     set((state) => ({
       items: state.items.map((existing) => (existing.id === id ? item : existing)),
-    })),
+    }));
+  },
 
-  removeItemLocal: (id) =>
-    set((state) => {
-      pendingDeletedIds.add(id);
-
-      return {
-        items: state.items.filter((item) => item.id !== id),
-      };
-    }),
+  removeItemLocal: (id) => {
+    itemsRevision += 1;
+    set((state) => ({
+      items: state.items.filter((item) => item.id !== id),
+    }));
+  },
 }));

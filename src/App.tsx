@@ -356,16 +356,17 @@ function App() {
   useEffect(() => {
     if (!currentUserEmail) {
       setPrepLoading(false);
-      setPrepSyncFallbackPolling(!isFirebaseConfigured);
+      setPrepSyncFallbackPolling(true);
       return;
     }
 
     setPrepLoading(true);
+    setPrepSyncFallbackPolling(true);
     const unsubscribe = subscribeToItems(selectedDashboardId || null, {
       onInitialSnapshot: () => {
         setPrepLoading(false);
-        setPrepSyncFallbackPolling(false);
       },
+      onConnectionChange: (connected) => setPrepSyncFallbackPolling(!connected),
       onError: (error) => {
         console.error("Failed syncing prep items:", error);
         setPrepSyncFallbackPolling(true);
@@ -381,13 +382,14 @@ function App() {
     }
 
     const reconcilePrepItems = () => {
+      if (currentUserEmail === guestEmail) return;
       void fetchItems().catch((error) => {
         console.error("Failed polling prep items:", error);
       });
     };
 
     reconcilePrepItems();
-    const intervalId = window.setInterval(reconcilePrepItems, prepSyncFallbackPolling || !isFirebaseConfigured ? 3000 : 10000);
+    const intervalId = window.setInterval(reconcilePrepItems, prepSyncFallbackPolling ? 3000 : 10000);
 
     return () => window.clearInterval(intervalId);
   }, [currentUserEmail, selectedDashboardId, prepSyncFallbackPolling, fetchItems]);
@@ -707,7 +709,7 @@ function App() {
   const totalCount = prepItems.length;
   const progressPercent =
     totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
-  const isLiveSyncEnabled = Boolean(currentUserEmail && selectedDashboardId) && isFirebaseConfigured && !prepSyncFallbackPolling;
+  const isLiveSyncEnabled = Boolean(currentUserEmail && selectedDashboardId) && !isGuestSession && !prepSyncFallbackPolling;
   const prepRefreshAgeSeconds =
     lastPrepRefreshAt === null ? null : Math.max(0, Math.floor((lastPrepRefreshNow - lastPrepRefreshAt) / 1000));
   const prepRefreshLabel =
